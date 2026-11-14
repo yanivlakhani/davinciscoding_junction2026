@@ -1,0 +1,1019 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#EEEBE3" />
+<title>Safety</title>
+<style>
+  /*
+   * Design language shared with the pitch deck and the glasses UI:
+   *   paper EEEBE3 ground, ink 141414 for type and rules, muted greys for
+   *   hierarchy, ISO 7010 safety colours for state (green safe, red danger,
+   *   yellow warning). Helvetica from the system; no webfonts.
+   */
+  :root {
+    --paper: #EEEBE3;
+    --paper-2: #E5E1D6;
+    --ink: #141414;
+    --grey: #6F6C64;
+    --mid: #8A877F;
+    --faint: #A7A49C;
+    --rule: #CFCABD;
+    --block: #DDD8CC;
+    --red: #EE352E;
+    --green: #00933C;
+    --blue: #0039A6;
+    --yellow: #FCCC0A;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    overflow-x: hidden;
+    background: #1b1b1d;
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Helvetica", Arial, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Device chrome: a phone frame for the desktop preview only. On a real */
+  /* phone the frame disappears and the app fills the screen.             */
+  /* -------------------------------------------------------------------- */
+  .frame {
+    position: relative;
+    width: 390px;
+    height: 844px;
+    margin: 28px auto;
+    background: var(--paper);
+    border: 11px solid #0a0a0a;
+    border-radius: 54px;
+    overflow: hidden;
+    box-shadow: 0 30px 90px rgba(0,0,0,0.5), inset 0 0 0 1px #2a2a2a;
+  }
+  .notch {
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 118px; height: 32px;
+    background: #0a0a0a;
+    border-radius: 0 0 20px 20px;
+    z-index: 20;
+  }
+  .home-indicator {
+    position: absolute;
+    bottom: 8px; left: 50%;
+    transform: translateX(-50%);
+    width: 134px; height: 5px;
+    background: var(--ink);
+    border-radius: 3px;
+    z-index: 30;
+    opacity: 0.85;
+  }
+
+  /* iOS-style status bar (clock + carrier/wifi/battery) */
+  .statusbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 54px;
+    padding: 18px 32px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    color: var(--ink);
+    z-index: 10;
+  }
+  .statusbar .time { font-variant-numeric: tabular-nums; }
+  .statusbar .trio { display: flex; gap: 6px; align-items: center; }
+  .statusbar svg { display: block; }
+
+  /* Strip the frame on actual phone-sized viewports */
+  @media (max-width: 500px) {
+    body { background: var(--paper); }
+    .frame {
+      width: 100%;
+      height: 100vh;
+      margin: 0;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .notch { display: none; }
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Screens                                                              */
+  /* -------------------------------------------------------------------- */
+  .screen {
+    position: absolute;
+    inset: 0;
+    padding: 54px 0 78px;
+    background: var(--paper);
+    display: none;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .screen.on { display: flex; }
+
+  /* Section strip: the deck's black-bar language, pulled down to subhead size */
+  .strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 14px 24px 2px;
+  }
+  .strip .label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+  .strip .page {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--grey);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .h-title {
+    padding: 0 24px 14px;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.9px;
+    line-height: 1.02;
+  }
+  /* Back action lives inside the section strip, left-aligned, replacing
+     the section label when present. */
+  .strip .back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--ink);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .strip .back::before {
+    content: "";
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-left: 1.5px solid var(--ink);
+    border-top: 1.5px solid var(--ink);
+    transform: rotate(-45deg) translate(1px, 1px);
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Status card — the one thing you see when you open the app            */
+  /* -------------------------------------------------------------------- */
+  .status {
+    margin: 2px 20px 0;
+    border: 1.5px solid var(--ink);
+    background: var(--paper);
+    padding: 22px 20px 18px;
+  }
+  .status-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .status-text { flex: 1; min-width: 0; }
+  .status-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    line-height: 1.15;
+    margin: 0;
+  }
+  .status-sub {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: var(--grey);
+    line-height: 1.35;
+  }
+  .status-disc {
+    flex-shrink: 0;
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--paper);
+  }
+  .status-disc svg { width: 28px; height: 30px; }
+  .status-disc.on  { background: var(--green); }
+  .status-disc.off { background: var(--red); }
+  .status-disc.off svg path:last-child { stroke: var(--red); }
+
+  .status-foot {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+  }
+  .big-toggle {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2px 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--ink);
+  }
+  .big-toggle-hint {
+    font-size: 13px;
+    color: var(--grey);
+    letter-spacing: -0.1px;
+  }
+
+  /* Deliberately not an iOS pill switch. Square, high-contrast. */
+  .switch {
+    position: relative;
+    width: 60px;
+    height: 32px;
+    background: var(--ink);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    width: 26px;
+    height: 26px;
+    background: var(--green);
+    transition: all 0.18s cubic-bezier(.3,.7,.3,1);
+    right: 3px;
+  }
+  .switch.is-off { background: var(--block); }
+  .switch.is-off::after { right: auto; left: 3px; background: var(--red); }
+
+  /* -------------------------------------------------------------------- */
+  /* Spec list — the "manual" feel: capitalised keys, tabular numbers     */
+  /* -------------------------------------------------------------------- */
+  .specs {
+    margin: 22px 20px 0;
+    border-top: 1px solid var(--ink);
+  }
+  .spec {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .spec-key {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+  .spec-val {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.1px;
+  }
+  .spec-val .dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    background: var(--green);
+    margin-right: 6px;
+    vertical-align: 1px;
+  }
+  .spec-val .dot.off { background: var(--mid); }
+
+  /* -------------------------------------------------------------------- */
+  /* Sections (contacts preview on home, full list on contacts screen)    */
+  /* -------------------------------------------------------------------- */
+  .section {
+    margin: 26px 20px 0;
+  }
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 6px;
+    margin-bottom: 2px;
+  }
+  .section-head h2 {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+  }
+  .section-head .action {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--ink);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .section-head-meta {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+
+  .contact {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule);
+    text-align: left;
+    background: none;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    width: 100%;
+    cursor: pointer;
+    color: var(--ink);
+    font-family: inherit;
+  }
+  .contact.slim { padding: 11px 0; align-items: center; }
+
+  /* Priority number in a square chip, matches the "stage" chips on the deck */
+  .rank {
+    flex-shrink: 0;
+    width: 24px; height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    font-variant-numeric: tabular-nums;
+    margin-right: 14px;
+    margin-top: 2px;
+  }
+  .contact.slim .rank { margin-top: 0; }
+  .rank-plus {
+    background: none;
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
+    font-size: 18px;
+    line-height: 1;
+    font-weight: 400;
+  }
+  .add-contact { color: var(--ink); }
+  .add-contact .contact-name { font-weight: 700; }
+  .contact-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+  .contact-name {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+  }
+  .contact-rel {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+  .contact-info {
+    margin-top: 6px;
+    font-size: 12.5px;
+    color: var(--grey);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.1px;
+  }
+  .contact-chev {
+    flex-shrink: 0;
+    margin-left: 12px;
+    font-size: 18px;
+    color: var(--mid);
+    line-height: 1;
+    padding-top: 2px;
+  }
+
+  .primary-tag {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--green);
+    color: var(--paper);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    margin-left: 6px;
+    vertical-align: 1.5px;
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Tab bar                                                              */
+  /* -------------------------------------------------------------------- */
+  .tabbar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 78px;
+    background: var(--paper);
+    border-top: 1px solid var(--ink);
+    display: flex;
+    padding-bottom: 18px;
+    z-index: 15;
+  }
+  .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    padding: 10px 0 0;
+    font-family: inherit;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: var(--mid);
+    cursor: pointer;
+    position: relative;
+  }
+  .tab svg { stroke: currentColor; }
+  .tab.is-active { color: var(--ink); }
+  .tab.is-active::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 36px;
+    height: 2px;
+    background: var(--ink);
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Edit contact form                                                    */
+  /* -------------------------------------------------------------------- */
+  .form {
+    margin: 10px 20px 0;
+  }
+  .field {
+    padding: 16px 0 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .field-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--grey);
+    margin-bottom: 10px;
+  }
+  .field-input {
+    width: 100%;
+    background: none;
+    border: none;
+    outline: none;
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.3px;
+    padding: 0;
+  }
+  .field-input::placeholder { color: var(--faint); }
+  .field-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 0;
+  }
+  .field-select {
+    width: 100%;
+    background: none;
+    border: none;
+    outline: none;
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.3px;
+    padding: 0;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .form-actions {
+    margin: 24px 20px 0;
+    display: flex;
+    gap: 10px;
+  }
+  .form-note {
+    margin: 18px 20px 0;
+    font-size: 12px;
+    color: var(--grey);
+    line-height: 1.4;
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Confirm-off sheet                                                    */
+  /* -------------------------------------------------------------------- */
+  .scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(10,10,10,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s;
+    z-index: 40;
+  }
+  .scrim.on { opacity: 1; pointer-events: auto; }
+
+  .sheet {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    background: var(--paper);
+    border-top: 2px solid var(--ink);
+    padding: 22px 24px 42px;
+    transform: translateY(100%);
+    transition: transform 0.22s cubic-bezier(.3,.7,.3,1);
+    z-index: 50;
+  }
+  .scrim.on + .sheet { transform: translateY(0); }
+
+  .sheet-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .sheet-triangle {
+    width: 36px; height: 32px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .sheet-triangle svg { display: block; }
+  .sheet-strip {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+  .sheet-title {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+    margin: 0 0 12px;
+  }
+  .sheet-body {
+    font-size: 14.5px;
+    line-height: 1.45;
+    color: var(--ink);
+    margin: 0 0 20px;
+  }
+  .sheet-body strong { font-weight: 700; }
+
+  .sheet-divider {
+    border: 0;
+    border-top: 1px solid var(--rule);
+    margin: 0 0 20px;
+  }
+  .sheet-list {
+    margin: 0 0 20px;
+    padding: 0;
+    list-style: none;
+  }
+  .sheet-list li {
+    padding: 8px 0 8px 18px;
+    position: relative;
+    font-size: 13.5px;
+    color: var(--grey);
+    line-height: 1.4;
+    border-bottom: 1px solid var(--rule);
+  }
+  .sheet-list li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 16px;
+    width: 10px;
+    height: 1px;
+    background: var(--ink);
+  }
+  .sheet-list li:last-child { border-bottom: none; }
+
+  .sheet-actions {
+    display: flex;
+    gap: 10px;
+  }
+  .btn {
+    flex: 1;
+    padding: 15px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: 1.5px solid var(--ink);
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .btn.danger {
+    background: var(--red);
+    border-color: var(--red);
+    color: var(--paper);
+  }
+  .btn.ink {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  /* Toast after turning off */
+  .toast {
+    position: absolute;
+    left: 20px; right: 20px;
+    bottom: 94px;
+    padding: 12px 14px;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: -0.1px;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 35;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .toast.on { opacity: 1; transform: translateY(0); }
+  .toast .tag {
+    padding: 2px 6px;
+    background: var(--red);
+    color: var(--paper);
+    font-size: 9px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+<div class="frame" aria-label="Safety app, iPhone preview">
+  <div class="notch"></div>
+
+  <!-- status bar -->
+  <div class="statusbar" aria-hidden="true">
+    <span class="time">9:41</span>
+    <div class="trio">
+      <!-- signal -->
+      <svg width="18" height="10" viewBox="0 0 18 10">
+        <rect x="0"  y="7" width="3" height="3" fill="#141414"/>
+        <rect x="5"  y="4" width="3" height="6" fill="#141414"/>
+        <rect x="10" y="1" width="3" height="9" fill="#141414"/>
+        <rect x="15" y="1" width="3" height="9" fill="#141414" opacity="0.3"/>
+      </svg>
+      <!-- wifi -->
+      <svg width="17" height="11" viewBox="0 0 17 11">
+        <path d="M8.5 0C4.9 0 1.6 1.3 0 3l2 2c1.7-1.5 4-2.3 6.5-2.3S13 3.5 14.7 5l2-2C15.1 1.3 11.8 0 8.5 0Zm0 4C6.1 4 4 4.9 2.6 6.2l2 2A5 5 0 0 1 8.5 6.8c1.4 0 2.8.5 3.9 1.4l2-2C13 4.9 10.9 4 8.5 4Zm0 4.1a2.1 2.1 0 0 0-1.7.8l1.7 1.7 1.7-1.7a2.1 2.1 0 0 0-1.7-.8Z" fill="#141414"/>
+      </svg>
+      <!-- battery -->
+      <svg width="27" height="13" viewBox="0 0 27 13">
+        <rect x="0.5" y="0.5" width="22" height="12" rx="2.5" ry="2.5" fill="none" stroke="#141414"/>
+        <rect x="2"   y="2"   width="17" height="9" fill="#141414"/>
+        <rect x="23.5" y="4" width="2" height="5" rx="0.8" fill="#141414"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- SCREEN: Home                                                       -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="screen on" id="screen-home">
+    <div class="strip">
+      <span class="label">Safety · Home</span>
+      <span class="page">01</span>
+    </div>
+    <h1 class="h-title">Safety</h1>
+
+    <div class="status">
+      <div class="status-top">
+        <div class="status-text">
+          <p class="status-title" id="st-title">Fall detection on</p>
+          <p class="status-sub" id="st-sub">Elena will be called if the glasses detect a fall.</p>
+        </div>
+        <div class="status-disc on" id="st-disc" aria-hidden="true">
+          <svg width="30" height="32" viewBox="0 0 22 24" fill="none">
+            <path d="M11 1 L1 5 V12 C1 18 5 22 11 23 C17 22 21 18 21 12 V5 Z" fill="currentColor"/>
+            <path d="M6.5 12 L9.8 15 L15.5 9" stroke="#00933C" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
+          </svg>
+        </div>
+      </div>
+      <div class="status-foot">
+        <button type="button" class="big-toggle" id="sw" aria-label="Fall detection" aria-pressed="true" onclick="askOff()">
+          <span class="big-toggle-hint" id="sw-hint">Tap to turn off</span>
+          <span class="switch" aria-hidden="true"></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="specs">
+      <div class="spec"><span class="spec-key">Glasses</span><span class="spec-val"><span class="dot"></span>Connected</span></div>
+      <div class="spec"><span class="spec-key">Glasses battery</span><span class="spec-val">82 %</span></div>
+      <div class="spec"><span class="spec-key">Last self-check</span><span class="spec-val">2 min ago</span></div>
+      <div class="spec"><span class="spec-key">Sensitivity</span><span class="spec-val">Standard</span></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <h2>Emergency contacts</h2>
+        <span class="section-head-meta">3 · in order</span>
+      </div>
+      <button class="contact slim" onclick="go('contacts')">
+        <span class="rank">1</span>
+        <div class="contact-main">
+          <span class="contact-name">Elena Lakhani</span>
+          <span class="contact-rel">Mother</span>
+        </div>
+        <span class="contact-chev">›</span>
+      </button>
+      <button class="contact slim" onclick="go('contacts')">
+        <span class="rank">2</span>
+        <div class="contact-main">
+          <span class="contact-name">Marco Rossi</span>
+          <span class="contact-rel">Flatmate</span>
+        </div>
+        <span class="contact-chev">›</span>
+      </button>
+      <button class="contact slim" onclick="go('contacts')">
+        <span class="rank">3</span>
+        <div class="contact-main">
+          <span class="contact-name">Dr. Henrik Aalto</span>
+          <span class="contact-rel">GP</span>
+        </div>
+        <span class="contact-chev">›</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- SCREEN: Contacts                                                   -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="screen" id="screen-contacts">
+    <div class="strip">
+      <button class="back" onclick="go('home')">Home</button>
+      <span class="page">02</span>
+    </div>
+    <h1 class="h-title">Who gets called</h1>
+
+    <div class="section" style="margin-top: 4px;">
+      <div class="section-head">
+        <h2>3 contacts</h2>
+        <button class="action" onclick="go('edit')">+ Add</button>
+      </div>
+      <button class="contact" onclick="go('edit')">
+        <span class="rank">1</span>
+        <div class="contact-main">
+          <span class="contact-name">Elena Lakhani<span class="primary-tag">Primary</span></span>
+          <span class="contact-rel">Mother</span>
+          <span class="contact-info">+39 342 149 6978<br/>elena.lakhani@proton.me</span>
+        </div>
+        <span class="contact-chev">›</span>
+      </button>
+      <button class="contact" onclick="go('edit')">
+        <span class="rank">2</span>
+        <div class="contact-main">
+          <span class="contact-name">Marco Rossi</span>
+          <span class="contact-rel">Flatmate</span>
+          <span class="contact-info">+39 333 902 5518<br/>marco.rossi@ethz.ch</span>
+        </div>
+        <span class="contact-chev">›</span>
+      </button>
+      <button class="contact" onclick="go('edit')">
+        <span class="rank">3</span>
+        <div class="contact-main">
+          <span class="contact-name">Dr. Henrik Aalto</span>
+          <span class="contact-rel">GP</span>
+          <span class="contact-info">+358 9 471 72100<br/>reception@mehilainen.fi</span>
+        </div>
+        <span class="contact-chev">›</span>
+      </button>
+
+      <button class="contact add-contact" onclick="go('edit')">
+        <span class="rank rank-plus">+</span>
+        <div class="contact-main">
+          <span class="contact-name">Add contact</span>
+          <span class="contact-rel">Up to 5 people</span>
+        </div>
+        <span class="contact-chev">›</span>
+      </button>
+    </div>
+
+    <p class="form-note" style="margin-top:22px;">
+      Glasses call contact 1 first. If they don&rsquo;t pick up within 30 seconds,
+      the glasses move to 2, then 3.
+    </p>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- SCREEN: Edit contact                                               -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="screen" id="screen-edit">
+    <div class="strip">
+      <button class="back" onclick="go('contacts')">Contacts</button>
+      <span class="page">03</span>
+    </div>
+    <h1 class="h-title">Elena Lakhani</h1>
+
+    <div class="form">
+      <label class="field">
+        <span class="field-label">Full name</span>
+        <input class="field-input" type="text" value="Elena Lakhani" />
+      </label>
+      <label class="field">
+        <span class="field-label">Relationship</span>
+        <select class="field-select">
+          <option>Mother</option>
+          <option>Father</option>
+          <option>Partner</option>
+          <option>Sibling</option>
+          <option>Friend</option>
+          <option>Doctor</option>
+          <option>Other</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">Phone</span>
+        <input class="field-input" type="tel" value="+39 342 149 6978" />
+      </label>
+      <label class="field">
+        <span class="field-label">Email</span>
+        <input class="field-input" type="email" value="elena.lakhani@proton.me" />
+      </label>
+      <div class="field field-row">
+        <span class="field-label" style="margin:0;">Primary contact</span>
+        <button type="button" class="switch" aria-pressed="true" aria-label="Primary contact"></button>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn" onclick="go('contacts')">Cancel</button>
+      <button class="btn ink" onclick="go('contacts')">Save</button>
+    </div>
+
+    <p class="form-note">
+      Elena will get a text with your location and a short recording if the glasses
+      escalate an alert. She can call back in-app.
+    </p>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- Confirm-turn-off sheet                                             -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="scrim" id="scrim" onclick="hideOff()"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-row">
+      <div class="sheet-triangle">
+        <svg width="36" height="32" viewBox="0 0 36 32" aria-hidden="true">
+          <polygon points="18,1 35,30 1,30" fill="#FCCC0A" stroke="#141414" stroke-width="1.5" stroke-linejoin="miter"/>
+          <text x="18" y="25" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="900" font-size="18" fill="#141414">!</text>
+        </svg>
+      </div>
+      <span class="sheet-strip">Warning · Action required</span>
+    </div>
+    <h2 class="sheet-title" id="sheet-title">Turn off fall detection?</h2>
+    <p class="sheet-body">
+      Your glasses will stop watching for falls. If something happens, nobody
+      will be called automatically.
+    </p>
+    <hr class="sheet-divider"/>
+    <ul class="sheet-list">
+      <li><strong>Elena Lakhani</strong> will get an email letting her know fall detection is off.</li>
+      <li>You can turn it back on from the home screen at any time.</li>
+    </ul>
+    <div class="sheet-actions">
+      <button class="btn" onclick="hideOff()">Keep it on</button>
+      <button class="btn danger" onclick="doOff()">Turn off</button>
+    </div>
+  </div>
+
+  <!-- Toast after turn-off -->
+  <div class="toast" id="toast">
+    <span class="tag">Off</span>
+    <span>Fall detection off. Email sent to Elena.</span>
+  </div>
+
+  <!-- Tab bar -->
+  <nav class="tabbar" aria-label="Sections">
+    <button class="tab is-active" data-tab="home" onclick="go('home')">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.6">
+        <path d="M10 1 L1 5 V10 C1 15 4.5 19 10 19 C15.5 19 19 15 19 10 V5 Z"/>
+      </svg>
+      Home
+    </button>
+    <button class="tab" data-tab="contacts" onclick="go('contacts')">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.6">
+        <circle cx="7" cy="7" r="3"/>
+        <path d="M1 18 C1 14 4 12 7 12 C10 12 13 14 13 18"/>
+        <circle cx="14" cy="6" r="2.2"/>
+        <path d="M11.5 11 C13 11 15 11 16 12 C18 13 19 15 19 17"/>
+      </svg>
+      Contacts
+    </button>
+    <button class="tab" data-tab="activity" disabled title="Not in this mock" style="opacity:0.35; cursor: not-allowed;">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.6">
+        <path d="M1 12 L5 12 L7 6 L10 16 L12 10 L14 12 L19 12"/>
+      </svg>
+      Activity
+    </button>
+  </nav>
+
+  <div class="home-indicator"></div>
+</div>
+
+<script>
+  const screens = ["home", "contacts", "edit"];
+  function go(name) {
+    screens.forEach(s => {
+      document.getElementById("screen-" + s).classList.toggle("on", s === name);
+    });
+    document.querySelectorAll(".tab").forEach(t => {
+      t.classList.toggle("is-active", t.dataset.tab === name || (name === "edit" && t.dataset.tab === "contacts"));
+    });
+    const frame = document.querySelector(".frame");
+    if (frame) frame.scrollTop = 0;
+    document.querySelectorAll(".screen").forEach(s => s.scrollTop = 0);
+  }
+
+  function askOff() {
+    const sw = document.getElementById("sw");
+    if (sw.classList.contains("is-off")) {
+      // turning back on
+      sw.classList.remove("is-off");
+      sw.setAttribute("aria-pressed", "true");
+      setOn();
+      return;
+    }
+    document.getElementById("scrim").classList.add("on");
+  }
+  function hideOff() {
+    document.getElementById("scrim").classList.remove("on");
+  }
+  function doOff() {
+    hideOff();
+    const sw = document.getElementById("sw");
+    sw.classList.add("is-off");
+    sw.setAttribute("aria-pressed", "false");
+    document.getElementById("st-title").textContent = "Fall detection off";
+    document.getElementById("st-sub").textContent = "Glasses won't call anyone. Turn back on when you're done.";
+    const d = document.getElementById("st-disc");
+    d.classList.remove("on"); d.classList.add("off");
+    const t = document.getElementById("toast");
+    t.classList.add("on");
+    setTimeout(() => t.classList.remove("on"), 3500);
+  }
+  function setOn() {
+    document.getElementById("st-title").textContent = "Fall detection on";
+    document.getElementById("st-sub").textContent = "Elena will be called if the glasses detect a fall.";
+    const d = document.getElementById("st-disc");
+    d.classList.remove("off"); d.classList.add("on");
+  }
+
+  // Deep-link for screenshotting: #/contacts, #/edit, #/home?confirm=1
+  (function initFromHash() {
+    const h = window.location.hash || "";
+    const [path, query] = h.replace(/^#\/?/, "").split("?");
+    if (["home", "contacts", "edit"].includes(path)) go(path);
+    if ((query || "").includes("confirm=1")) {
+      document.getElementById("scrim").classList.add("on");
+    }
+  })();
+</script>
+</body>
+</html>
