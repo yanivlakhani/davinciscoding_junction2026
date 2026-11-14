@@ -11,3 +11,13 @@ backend/results_*/
 backend/evaluation_history.jsonl
 backend/model_comparison.json
 backend/model_comparison.md
+# Ignora i dati di training e i modelli pesanti
+dati_raccolti/
+*.mlpackage
+*.mlmodel
+*.csv
+*.mp4
+*.mov
+
+# Ignora file di configurazione con API key
+.env
