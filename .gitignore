@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 .DS_Store
 .venv/
+/local/
 backend/data/
 backend/datasets/
 backend/results_*/
