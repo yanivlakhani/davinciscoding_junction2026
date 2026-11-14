@@ -1,0 +1,25 @@
+{
+  "name": "glasses-ui",
+  "version": "1.0.0",
+  "description": "AI Safety Glasses — right-lens UI for Meta Ray-Ban Display",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@wearables-ui-toolkit/foundation": "^130.33.0",
+    "@wearables-ui-toolkit/icons": "^130.33.0",
+    "@wearables-ui-toolkit/mrbd": "^130.33.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  }
+}
