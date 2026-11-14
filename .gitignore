@@ -1,0 +1,4 @@
+.env
+.modal.toml
+__pycache__/
+*.pyc
