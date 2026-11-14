@@ -91,6 +91,43 @@ The workflow demonstrates this with two jobs that differ only in policy:
 The second job is what a reviewed dependency should look like: a named host
 in version control with a reason attached, rather than a fetch nobody saw.
 
+## Where the SBOM goes next: the companion app's Trust panel
+
+The CRA does not require publishing the SBOM to users, and most teams
+don't. For a device a vulnerable person wears all day, we think the
+opposite is the more interesting move: take the ingredient list CRACI
+records and show it to the person wearing the device, and to their family.
+
+The companion app's `Trust` tab (`mobile-app` branch, screenshots in
+`mobile-app/shots/`) translates the CycloneDX SBOM into five human-worded
+groups — "Sees and understands what happens", "Keeps your face private",
+"Alerts your family", "Receives signals from the glasses", "Shows text on
+your glasses" — with the real package names one tap away. Every figure
+on the screen traces back to this directory's SBOMs through a small
+translation script (`mobile-app/scripts/build-trust-panel.mjs`) that
+refuses to emit placeholders; if the record is missing the panel says so.
+
+So the chain is:
+
+```
+CRACI runners  ->  supply-chain/*.cyclonedx.json
+                     |
+                     v
+          mobile-app/scripts/build-trust-panel.mjs
+                     |
+                     v
+          mobile-app/data/trust-panel.js
+                     |
+                     v
+          Trust panel in the companion app
+```
+
+This is the first SBOM we've seen pointed at the person wearing the
+device, rather than at an auditor. The CRA angle is still there — the
+record is the same one that would go to a market surveillance authority
+on reasoned request — but the first audience is the family member who
+wants to know what their mother's glasses are actually running.
+
 ## Reproducing the lockfile-only view
 
 `./supply-chain/baseline-sbom.sh` regenerates `baseline/*.cyclonedx.json`
