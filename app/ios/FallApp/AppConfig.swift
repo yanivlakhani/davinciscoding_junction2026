@@ -21,6 +21,6 @@ enum CameraCodec: String, CaseIterable, Identifiable, Sendable {
 enum AppConfig {
     // Camera is now explicitly enabled by the user for the Modal image workflow.
     static let automaticFallVideoEnabled = true
-    static let soundEnabled = false
+    static let soundEnabled = true // Only the explicitly enabled, confirmed-fall check-in.
     static let vibrationEnabled = false
 }

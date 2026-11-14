@@ -35,7 +35,7 @@ Default `best_n=7` forwards every usable image if all seven are usable.
 
 ## Response and recovery
 
-Current response fields include `event_id`, `n_frames`, `best_n`,
+Current response fields include nullable `fall_detected`, `event_id`, `n_frames`, `best_n`,
 `selected_frame_indices`, `selected_frame_times_s`, `vision`, `vision_error`,
 `status` and `processing_ms`. `vision.caduta` is `SI`, `NO`, or null when there is
 no prediction. A null result or provider error must never be interpreted as NO.
@@ -46,7 +46,8 @@ lookup. Expected results are HTTP 200/`ok=true` and HTTP 404/`unknown event`.
 Before upload it looks up `/event/{event_id}` to recover an already accepted
 request. A successful response is saved under `server-responses/`; the event then
 moves from `outbox/` to `delivered/`. Existing UI reports this receipt status,
-not a parsed visual-model verdict.
+and separately displays the parsed visual-model verdict. Negative results finish
+the event; positive results can start the explicitly enabled spoken check-in.
 
 Incomplete captures stay local. Network, TLS, authorization and server failures
 retain images/events; retryable failures back off for 30 seconds while the app
@@ -56,9 +57,9 @@ forwarded across redirects. No `/answer` or `/alarm` call is issued by this app.
 
 ## Remaining integration work
 
-- Add typed fall/no-fall/unavailable parsing and UI, separate from upload receipt.
-- Distinguish HTTP receipt from provider failure: `/analyze` currently can return
-  HTTP 200 with `vision_error` and no prediction.
+- Visual result parsing now distinguishes true, false and unavailable even if
+  HTTP 200 contains `vision_error`. See [the spoken check-in contract](CHECK_IN.md)
+  for ElevenLabs setup, staged reply analysis, email consent, silence alerts and call handoff.
 - Implement atomic server-side request idempotency before relying on retries
   under concurrent/ambiguous requests.
 - Carry actual frame offsets instead of backend-inferred evenly spaced times.

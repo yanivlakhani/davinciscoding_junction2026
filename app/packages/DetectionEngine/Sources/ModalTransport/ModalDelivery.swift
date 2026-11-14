@@ -16,6 +16,8 @@ public struct DeliveryStatus: Sendable {
     public var delivered = 0
     public var authenticated = false
     public var message = "Server setup pending"
+    public var checkInReply: CheckInReply?
+    public var checkInMessage = ""
     public init() {}
 }
 
@@ -99,6 +101,8 @@ private final class NoRedirect: NSObject, URLSessionTaskDelegate, Sendable {
 
 /// Camera-dependent events stay queued until a complete real capture is present.
 public actor ModalDelivery {
+    public nonisolated let assessments: AsyncStream<ServerAssessment>
+    private let assessmentContinuation: AsyncStream<ServerAssessment>.Continuation
     private let root: URL
     private let settings: ModalServerSettings?
     private let session: URLSession
@@ -107,8 +111,15 @@ public actor ModalDelivery {
     private var authenticated = false
     private var message: String
     private var nextAttempt: [String: Date] = [:]
+    private var checkInReply: CheckInReply?
+    private var checkInMessage = ""
+    private var sendingCheckIn = false
+    private var checkInRetryAfter: [String: Date] = [:]
+    private var questionAudio: [String: Data] = [:]
 
     public init(root: URL, settings: ModalServerSettings?, configurationMessage: String = "Server setup pending", session: URLSession? = nil) {
+        let events = AsyncStream<ServerAssessment>.makeStream()
+        assessments = events.stream; assessmentContinuation = events.continuation
         self.root = root; self.settings = settings; self.message = configurationMessage
         networkLog = NetworkLog(root: root)
         if let session { self.session = session }
@@ -125,6 +136,7 @@ public actor ModalDelivery {
         var result = DeliveryStatus()
         result.pending = try files("outbox").count; result.delivered = try files("delivered").count
         result.authenticated = authenticated; result.message = message
+        result.checkInReply = checkInReply; result.checkInMessage = checkInMessage
         return result
     }
 
@@ -216,9 +228,15 @@ public actor ModalDelivery {
                 if let error = response["error"], !(error is NSNull), (error as? Bool) != false {
                     throw DeliveryError.invalidResponse
                 }
+                let notice = try JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any]
+                let triggeredAt = (notice?["detectedAtUTC"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) }
+                let assessment = try ServerAssessment.parse(responseData, expectedEventId: id, triggeredAt: triggeredAt)
                 try responseData.write(to: responses.appendingPathComponent(id + ".json"), options: .atomic)
                 try FileManager.default.moveItem(at: file, to: completed.appendingPathComponent(file.lastPathComponent))
-                nextAttempt[id] = nil; message = "Server accepted fall capture"
+                nextAttempt[id] = nil
+                message = assessment.fallDetected == true ? "Fall confirmed by server" :
+                    (assessment.fallDetected == false ? "No fall · monitoring continues" : "Analysis unavailable · monitoring continues")
+                assessmentContinuation.yield(assessment)
             } catch DeliveryError.unauthorized {
                 authenticated = false; message = "Server rejected API key · event stays queued"; return
             } catch DeliveryError.server(let code) {
@@ -234,8 +252,89 @@ public actor ModalDelivery {
                 message = "Upload unavailable · event stays queued"; nextAttempt[id] = Date().addingTimeInterval(30)
             }
         }
+        await flushCheckIns()
         saveConnectionStatus()
         await networkLog.drain()
+    }
+
+    public func checkInPrompt(language: String, kind: String = "check_in") async throws -> Data {
+        guard let settings, ["en", "it"].contains(language),
+              ["check_in", "contact", "decline", "call", "email_submitted", "email_failed", "call_handoff"].contains(kind) else { throw DeliveryError.invalidRequest }
+        let cacheKey = language + "-" + kind
+        if let cached = questionAudio[cacheKey] { return cached }
+        var components = URLComponents(url: settings.baseURL.appendingPathComponent("check-in/prompt"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [.init(name: "language", value: language)]
+        if kind != "check_in" { components.queryItems?.append(.init(name: "kind", value: kind)) }
+        var request = URLRequest(url: components.url!)
+        request.setValue(settings.apiKey, forHTTPHeaderField: "x-api-key")
+        let (data, response) = try await perform(request, phase: "check_in_prompt")
+        if (response as? HTTPURLResponse)?.statusCode == 503 { throw CheckInError.voiceUnavailable }
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+              http.value(forHTTPHeaderField: "Content-Type")?.hasPrefix("audio/") == true,
+              (kind == "check_in" || http.value(forHTTPHeaderField: "X-Check-In-Protocol") == "2"),
+              !data.isEmpty, data.count <= 2 * 1024 * 1024 else { throw DeliveryError.invalidResponse }
+        questionAudio[cacheKey] = data
+        return data
+    }
+
+    @discardableResult public func queueCheckIn(_ submission: CheckInSubmission) async throws -> CheckInReply? {
+        try submission.validate()
+        if let completed = try savedCheckInReply(for: submission) { return completed }
+        let directory = root.appendingPathComponent("check-in-outbox")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        #if os(iOS)
+        try FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: directory.path)
+        #endif
+        let file = directory.appendingPathComponent(submission.queueID + ".json")
+        if FileManager.default.fileExists(atPath: file.path) {
+            guard try JSONDecoder().decode(CheckInSubmission.self, from: Data(contentsOf: file)) == submission else { throw DeliveryError.invalidRequest }
+        } else { try JSONEncoder().encode(submission).write(to: file, options: .atomic) }
+        await flushCheckIns()
+        return try savedCheckInReply(for: submission)
+    }
+
+    public func savedCheckInReply(for submission: CheckInSubmission) throws -> CheckInReply? {
+        let file = root.appendingPathComponent("check-in-responses").appendingPathComponent(submission.queueID + ".json")
+        guard FileManager.default.fileExists(atPath: file.path) else { return nil }
+        let data = try Data(contentsOf: file)
+        if let row = try JSONSerialization.jsonObject(with: data) as? [String: Any], let text = row["transcript"] as? String,
+           text != (submission.transcript ?? "").trimmingCharacters(in: .whitespacesAndNewlines) { throw DeliveryError.invalidRequest }
+        let reply = try JSONDecoder().decode(CheckInReply.self, from: data)
+        try reply.validate(for: submission)
+        return reply
+    }
+
+    private func flushCheckIns() async {
+        guard !sendingCheckIn, let settings else { return }
+        sendingCheckIn = true; defer { sendingCheckIn = false }
+        do {
+            let responses = root.appendingPathComponent("check-in-responses")
+            try FileManager.default.createDirectory(at: responses, withIntermediateDirectories: true)
+            for file in try files("check-in-outbox") {
+                let submission = try JSONDecoder().decode(CheckInSubmission.self, from: Data(contentsOf: file))
+                try submission.validate()
+                if let next = checkInRetryAfter[submission.queueID], next > Date() { continue }
+                do {
+                    var request = URLRequest(url: settings.baseURL.appendingPathComponent("event/" + submission.eventId + "/check-in"))
+                    request.httpMethod = "POST"; request.httpBody = try JSONEncoder().encode(submission)
+                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    request.setValue(settings.apiKey, forHTTPHeaderField: "x-api-key")
+                    request.setValue(submission.queueID + "-check-in", forHTTPHeaderField: "Idempotency-Key")
+                    let (data, response) = try await perform(request, phase: "check_in_answer", eventID: submission.eventId)
+                    let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+                    guard (200..<300).contains(code) else { throw DeliveryError.server(code) }
+                    let reply = try JSONDecoder().decode(CheckInReply.self, from: data)
+                    try reply.validate(for: submission)
+                    try data.write(to: responses.appendingPathComponent(file.lastPathComponent), options: .atomic)
+                    try FileManager.default.removeItem(at: file)
+                    checkInReply = reply; checkInRetryAfter[submission.queueID] = nil
+                    checkInMessage = reply.displayMessage
+                } catch {
+                    checkInMessage = "Check-in upload pending · transcript retained"
+                    checkInRetryAfter[submission.queueID] = Date().addingTimeInterval(30)
+                }
+            }
+        } catch { checkInMessage = "Check-in queue needs attention" }
     }
 
     private func perform(_ request: URLRequest, phase: String, eventID: String = "") async throws -> (Data, URLResponse) {

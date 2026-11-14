@@ -21,6 +21,10 @@ modal deploy backend/fall_server.py
 
 Configure the existing Modal secret `fall-secrets` with `ANTHROPIC_API_KEY` and
 `API_KEY`; optional `NOTIFY_WEBHOOK_URL` is used by explicit alarm/answer routes.
+For the Gmail POC, create the separate `email-sending` Modal secret, select
+`NOTIFY_CHANNEL=email` and configure the sender,
+Google app password and one recipient as described in [Email alerts](EMAIL_ALERTS.md).
+These values stay in Modal secrets. Email submission is not proof of inbox delivery.
 Keep credential values outside the repository. The Docker image declares the
 runtime dependencies, including FastAPI, multipart, OpenCV and Anthropic.
 
@@ -62,3 +66,21 @@ Le chiamate vengono aggiunte a `evaluation_history.jsonl`. Lo script aggiorna
 tabella Markdown confronta accuratezza, precisione, recall, specificità, F1,
 ROC-AUC e latenza mediana/p95 tra i soli modelli Claude. Le metriche di qualità
 sono calcolate solo per le immagini con etichetta ground truth.
+
+## Spoken check-in
+
+The authenticated `/check-in/prompt` and `/event/{eid}/check-in` routes support
+staged questions, complete-reply analysis, email consent and a separate call request.
+Add `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID` to the separate `elevenlabs-voice`
+Modal secret, preserving `fall-secrets` API/Anthropic credentials. See
+[the check-in contract](../app/contracts/CHECK_IN.md). Two healthy unanswered
+questions send an email; audio errors are not silence. The server records call
+requests but never claims to place or connect a cellular call.
+
+```sh
+pip install -r backend/requirements-test.txt
+python -m unittest discover -s backend/tests -v
+```
+
+These tests stub image/provider/Modal dependencies and do not contact a model,
+create production events or notify contacts. Missing `API_KEY` now fails closed.

@@ -14,6 +14,7 @@ struct MonitoringConsentView: View {
                     Text("If you swipe FallApp away in the app switcher, monitoring may stop. Reopen FallApp and check that your glasses are connected before relying on monitoring again.")
                     Text("Monitoring can also pause when the glasses disconnect or another glasses experience interrupts the session.")
                     Text("Your selected camera setting may activate the glasses camera and capture LED during movement. Confirmed falls capture one second at a target of 7 frames per second and send every captured frame to your configured server. JPEG images are saved for upload and retry; no MP4 video is created.")
+                    Text("If you enable spoken check-in, your full transcribed replies go to the server. The app asks before emailing your emergency contact, except that two unanswered questions send an email automatically. Email includes your reported symptoms and timestamped phone location when permitted and available. Phone calls are a separate choice and still require iPhone confirmation.")
                     Toggle("Notify me if monitoring disconnects", isOn: $notifyOnDisconnect)
                     Text("Optional silent alerts. iPhone will ask for notification permission. A force-quit may prevent the app from detecting the interruption or sending an alert.")
                         .font(.footnote).foregroundStyle(.secondary)

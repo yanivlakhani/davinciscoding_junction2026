@@ -37,7 +37,10 @@ The GitHub deployment workflow uses `backend/fall_server.py`. Configure
 Modal deployments on backend changes to `main`; otherwise deployment is explicitly
 skipped. Set optional `MODAL_URL` for its health check.
 
-The app currently shows delivery status rather than a typed visual true/false
-verdict. See [the integration contract](app/contracts/INTEGRATION.md) for remaining
-result-handling and retry limits. Physical seven-frame end-to-end validation
-remains required.
+A negative visual verdict ends that event while motion monitoring continues.
+An enabled positive-result flow asks ElevenLabs questions through the glasses,
+analyzes full replies, asks for email consent, and separately offers an iPhone
+call handoff. Two healthy unanswered listening windows send an email automatically.
+See [spoken check-in setup](app/contracts/CHECK_IN.md) and
+[the integration contract](app/contracts/INTEGRATION.md). Configured-service and
+physical end-to-end validation remain required.

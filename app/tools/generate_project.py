@@ -43,7 +43,7 @@ resource_phase = add("resources", isa="PBXResourcesBuildPhase", buildActionMask=
 framework_phase = add("frameworks", isa="PBXFrameworksBuildPhase", buildActionMask=2147483647, files=frameworks, runOnlyForDeploymentPostprocessing=0)
 target_config, project_config = [], []
 for name in ("Debug", "Release"):
-    settings = {"CODE_SIGN_STYLE": "Automatic", "CURRENT_PROJECT_VERSION": "10", "MARKETING_VERSION": "0.1.0",
+    settings = {"CODE_SIGN_STYLE": "Automatic", "CURRENT_PROJECT_VERSION": "13", "MARKETING_VERSION": "0.1.0",
         "PRODUCT_NAME": "$(TARGET_NAME)",
         "INFOPLIST_FILE": "FallApp/Info.plist", "GENERATE_INFOPLIST_FILE": "NO", "SWIFT_VERSION": "6.0",
         "IPHONEOS_DEPLOYMENT_TARGET": "17.2", "TARGETED_DEVICE_FAMILY": "1", "SDKROOT": "iphoneos",
@@ -91,8 +91,11 @@ info_value = {"CFBundleDevelopmentRegion": "en", "CFBundleDisplayName": "FallApp
     "MWDAT": {"AppLinkURLScheme": "fallapp://", "MetaAppID": "$(META_APP_ID)", "ClientToken": "$(CLIENT_TOKEN)", "TeamID": "$(DEVELOPMENT_TEAM)"},
     "NSBluetoothAlwaysUsageDescription": "Connect to your Meta glasses for local fall monitoring.",
     "NSCameraUsageDescription": "Capture one-second image bursts from your glasses after a fall alert.",
+    "NSMicrophoneUsageDescription": "Hear your reply through the glasses microphone after a server-confirmed fall.",
+    "NSLocationWhenInUseUsageDescription": "Include your timestamped phone location in a fall alert email to your emergency contact.",
+    "NSSpeechRecognitionUsageDescription": "Transcribe your spoken check-in reply and send its text to your fall-monitoring server for analysis.",
     "NSLocalNetworkUsageDescription": "Connect to your Meta glasses over the local network.",
-    "NSBonjourServices": ["_bonjour._tcp"], "UIBackgroundModes": ["bluetooth-central", "bluetooth-peripheral", "external-accessory"],
+    "NSBonjourServices": ["_bonjour._tcp"], "UIBackgroundModes": ["bluetooth-central", "bluetooth-peripheral", "external-accessory", "audio"],
     "UISupportedExternalAccessoryProtocols": ["com.meta.ar.wearable"], "UILaunchScreen": {},
     "UIFileSharingEnabled": True, "LSSupportsOpeningDocumentsInPlace": True,
     "UISupportedInterfaceOrientations": ["UIInterfaceOrientationPortrait"], "UIUserInterfaceStyle": "Light",

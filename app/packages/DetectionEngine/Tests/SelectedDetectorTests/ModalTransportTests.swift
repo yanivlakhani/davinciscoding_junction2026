@@ -9,9 +9,11 @@ private final class MockState: @unchecked Sendable {
     private let lock = NSLock()
     private var handlers: [String: @Sendable (URLRequest) -> (Int, String)] = [:]
     private var requests: [String: [URLRequest]] = [:]
-    func set(_ host: String, handler: @escaping @Sendable (URLRequest) -> (Int, String)) {
-        lock.lock(); defer { lock.unlock() }; handlers[host] = handler; requests[host] = []
+    private var responseHeaders: [String: [String: String]] = [:]
+    func set(_ host: String, headers: [String: String] = [:], handler: @escaping @Sendable (URLRequest) -> (Int, String)) {
+        lock.lock(); defer { lock.unlock() }; handlers[host] = handler; requests[host] = []; responseHeaders[host] = headers
     }
+    func headers(_ host: String) -> [String: String] { lock.lock(); defer { lock.unlock() }; return responseHeaders[host] ?? [:] }
     func respond(_ request: URLRequest) -> (Int, String) {
         lock.lock(); defer { lock.unlock() }
         let host = request.url!.host!
@@ -45,8 +47,10 @@ private final class MockServerProtocol: URLProtocol, @unchecked Sendable {
             client?.urlProtocol(self, didFailWithError: URLError(URLError.Code(rawValue: result.0)))
             return
         }
+        var headers = Self.state.headers(request.url!.host!)
+        headers["Content-Type"] = request.url!.path == "/check-in/prompt" && result.0 == 200 ? "audio/mpeg" : "application/json"
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: result.0,
-            httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
+            httpVersion: "HTTP/1.1", headerFields: headers)!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(result.1.utf8))
         client?.urlProtocolDidFinishLoading(self)
     }
@@ -56,6 +60,106 @@ private final class MockServerProtocol: URLProtocol, @unchecked Sendable {
 final class ModalTransportTests: XCTestCase {
     private let id = "session-test-1"
     private let image = Data([0xff, 0xd8, 1, 2, 3, 0xff, 0xd9]) // Transport fixture only; no live server requests.
+
+    func testFixedQuestionIsCachedBeforeFallWithoutProviderKeyOnPhone() async throws {
+        let (root, service, host) = try setup(); defer { try? FileManager.default.removeItem(at: root) }
+        MockServerProtocol.state.set(host) { _ in (200, "offline-audio-transport-fixture") }
+        let first = try await service.checkInPrompt(language: "en")
+        let second = try await service.checkInPrompt(language: "en")
+        XCTAssertEqual(first, second)
+        let requests = MockServerProtocol.state.recorded(host)
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertEqual(requests.first?.url?.query, "language=en")
+        XCTAssertNil(requests.first?.value(forHTTPHeaderField: "xi-api-key"))
+        XCTAssertEqual(requests.first?.value(forHTTPHeaderField: "x-api-key"), "test-only-key")
+    }
+
+    func testSpokenReplyUsesNewEndpointAndSendsCompleteTranscript() async throws {
+        let (root, service, host) = try setup(); defer { try? FileManager.default.removeItem(at: root) }
+        MockServerProtocol.state.set(host) { request in
+            if request.url!.path.hasSuffix("/check-in") {
+                return (200, "{\"event_id\":\"session-test-1\",\"status\":\"analyzed\",\"analysis\":{\"answer_status\":\"needs_help\",\"summary\":\"Reports pain\",\"confidence\":0.9}}")
+            }
+            return (404, "{\"detail\":\"unknown event\"}")
+        }
+        let text = "Yes, but I think I broke something"
+        try await service.queueCheckIn(.init(eventId: id, outcome: .response, transcript: text, language: "en"))
+        let requests = MockServerProtocol.state.recorded(host)
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertEqual(requests.first?.url?.path, "/event/session-test-1/check-in")
+        XCTAssertEqual(requests.first?.value(forHTTPHeaderField: "x-api-key"), "test-only-key")
+        let body = try JSONSerialization.jsonObject(with: XCTUnwrap(requests.first?.httpBody)) as! [String: Any]
+        XCTAssertEqual(body["transcript"] as? String, text)
+        let status = try await service.snapshot()
+        XCTAssertEqual(status.checkInReply?.analysis?.answer_status, "needs_help")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("check-in-outbox/session-test-1.json").path))
+    }
+
+    func testCheckInFailureKeepsTranscriptAndDoesNotImmediatelyRepeatRequest() async throws {
+        let (root, service, host) = try setup(); defer { try? FileManager.default.removeItem(at: root) }
+        MockServerProtocol.state.set(host) { _ in (503, "{\"detail\":\"reply_analysis_unavailable\"}") }
+        let submission = CheckInSubmission(eventId: id, outcome: .response, transcript: "My arm hurts", language: "en")
+        try await service.queueCheckIn(submission)
+        try await service.queueCheckIn(submission)
+        XCTAssertEqual(MockServerProtocol.state.recorded(host).count, 1)
+        let file = root.appendingPathComponent("check-in-outbox/session-test-1.json")
+        XCTAssertEqual(try JSONDecoder().decode(CheckInSubmission.self, from: Data(contentsOf: file)), submission)
+    }
+
+    func testLegacyNoResponsePostsNoAttestationOfTwoWindowsAndNoProviderCredentials() async throws {
+        let (root, service, host) = try setup(); defer { try? FileManager.default.removeItem(at: root) }
+        MockServerProtocol.state.set(host) { _ in (200, "{\"event_id\":\"session-test-1\",\"status\":\"no_response\",\"analysis\":null}") }
+        try await service.queueCheckIn(.init(eventId: id, outcome: .noResponse, transcript: nil, language: "en"))
+        let request = try XCTUnwrap(MockServerProtocol.state.recorded(host).first)
+        let body = try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as! [String: Any]
+        XCTAssertEqual(body["outcome"] as? String, "no_response")
+        XCTAssertNil(body["unanswered_prompts"])
+        XCTAssertTrue(body["transcript"] == nil || body["transcript"] is NSNull)
+        XCTAssertNil(request.value(forHTTPHeaderField: "xi-api-key"))
+        XCTAssertFalse(request.url!.path.hasSuffix("/answer"))
+        XCTAssertFalse(request.url!.path.hasSuffix("/alarm"))
+    }
+
+    func testQuestionsHaveSeparateCachesAndRequireMatchingServerProtocol() async throws {
+        let (root, service, host) = try setup(); defer { try? FileManager.default.removeItem(at: root) }
+        MockServerProtocol.state.set(host, headers: ["X-Check-In-Protocol": "2"]) { request in
+            (200, request.url?.query ?? "")
+        }
+        let initial = try await service.checkInPrompt(language: "en")
+        let contact = try await service.checkInPrompt(language: "en", kind: "contact")
+        _ = try await service.checkInPrompt(language: "en", kind: "contact")
+        XCTAssertNotEqual(initial, contact)
+        XCTAssertEqual(MockServerProtocol.state.recorded(host).count, 2)
+        let (legacyRoot, legacy, oldHost) = try setup(); defer { try? FileManager.default.removeItem(at: legacyRoot) }
+        MockServerProtocol.state.set(oldHost) { _ in (200, "old-question") }
+        do { _ = try await legacy.checkInPrompt(language: "en", kind: "contact"); XCTFail("Old server cannot supply consent question") }
+        catch { }
+    }
+
+    func testStagedRepliesStaySeparateAndReplayedConsentDoesNotPostAgain() async throws {
+        let (root, service, host) = try setup(); defer { try? FileManager.default.removeItem(at: root) }
+        MockServerProtocol.state.set(host) { request in
+            let row = try! JSONSerialization.jsonObject(with: request.httpBody!) as! [String: Any]
+            if row["stage"] as? String == "contact" {
+                return (200, "{\"event_id\":\"session-test-1\",\"stage\":\"contact\",\"status\":\"decided\",\"decision\":\"yes\",\"next_action\":\"ask_call\",\"notification\":{\"channel\":\"email\",\"status\":\"submitted\"},\"transcript\":\"Yes\"}")
+            }
+            return (200, "{\"event_id\":\"session-test-1\",\"stage\":\"initial\",\"status\":\"analyzed\",\"next_action\":\"ask_contact\",\"analysis\":{\"answer_status\":\"needs_help\",\"summary\":\"Pain\",\"confidence\":0.9},\"transcript\":\"My leg hurts\"}")
+        }
+        let initial = CheckInSubmission(eventId: id, outcome: .response, transcript: "My leg hurts", language: "en", stage: .initial)
+        let consent = CheckInSubmission(eventId: id, outcome: .response, transcript: "Yes", language: "en", stage: .contact)
+        let first = try await service.queueCheckIn(initial)
+        let second = try await service.queueCheckIn(consent)
+        _ = try await service.queueCheckIn(consent)
+        XCTAssertEqual(first?.next_action, "ask_contact")
+        XCTAssertEqual(second?.notification?.status, "submitted")
+        XCTAssertEqual(MockServerProtocol.state.recorded(host).count, 2)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("check-in-responses/\(id).json").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("check-in-responses/\(id)-contact.json").path))
+        do {
+            _ = try await service.queueCheckIn(.init(eventId: id, outcome: .response, transcript: "No", language: "en", stage: .contact))
+            XCTFail("Changed consent must not reuse a yes receipt")
+        } catch { }
+    }
 
     private func setup(post: Int = 200, exists: Bool = false, authorized: Bool = true, nullError: Bool = false) throws -> (URL, ModalDelivery, String) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

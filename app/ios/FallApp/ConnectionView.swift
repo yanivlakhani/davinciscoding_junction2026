@@ -41,6 +41,29 @@ struct ConnectionView: View {
                     }.frame(maxWidth: .infinity).padding(.vertical, 9)
                 }.buttonStyle(.borderedProminent).tint(.blue).disabled(controller.busy)
                 VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Spoken fall check-in", isOn: Binding(
+                        get: { controller.checkIn.enabled },
+                        set: { value in Task { await controller.checkIn.setEnabled(value) } }))
+                    Text("After a confirmed fall, the glasses ask how you feel, then ask before emailing your emergency contact. Two unanswered questions send an email automatically. A separate question offers a phone call, which requires iPhone confirmation. Microphone audio is not saved.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    Text("Speech recognition uses Apple’s service if on-device recognition is unavailable. Glasses must be selected as the Bluetooth audio route.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    Picker("Check-in language", selection: Binding(get: { controller.checkIn.language }, set: { controller.checkIn.language = $0 })) {
+                        Text("English").tag("en"); Text("Italian").tag("it")
+                    }.disabled(controller.checkIn.busy)
+                    Picker("Time to start replying", selection: Binding(get: { controller.checkIn.listenSeconds }, set: { controller.checkIn.listenSeconds = $0 })) {
+                        Text("10 seconds").tag(10.0); Text("15 seconds").tag(15.0); Text("20 seconds").tag(20.0); Text("30 seconds").tag(30.0)
+                    }.disabled(controller.checkIn.busy)
+                    Text("Each question repeats once after silence. An audio error does not count as no response.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    TextField("Your name for email alerts", text: Binding(get: { controller.checkIn.personName }, set: { controller.checkIn.personName = $0 }))
+                        .textContentType(.name).disabled(controller.checkIn.busy)
+                    TextField("Emergency contact phone (+country code)", text: Binding(get: { controller.checkIn.contactPhone }, set: { controller.checkIn.contactPhone = $0 }))
+                        .keyboardType(.phonePad).textContentType(.telephoneNumber).disabled(controller.checkIn.busy)
+                    Button("Enable / refresh phone location for alerts") { controller.checkIn.location.requestPermissionAndLocation() }
+                    Text(controller.checkIn.location.status).font(.footnote).foregroundStyle(.secondary)
+                    Text("Alerts use a timestamped phone location when available. The email recipient is configured on the server; this phone number is used only for calls.")
+                        .font(.footnote).foregroundStyle(.secondary)
                     Toggle("Disconnection notifications", isOn: Binding(
                         get: { controller.disconnectionAlerts.enabled },
                         set: { enabled in Task { await controller.disconnectionAlerts.setEnabled(enabled) } }))
@@ -67,6 +90,15 @@ struct ConnectionView: View {
                         }.buttonStyle(.bordered)
                     }
                     statusRow("Modal", value: controller.deliveryStatus.message, color: controller.deliveryStatus.authenticated ? .green : .orange)
+                    statusRow("Visual result", value: controller.checkIn.modelResult, color: .blue)
+                    statusRow("Spoken check-in", value: controller.checkIn.status, color: controller.checkIn.busy ? .blue : .gray)
+                    if controller.checkIn.pendingCallEvent != nil {
+                        Text("Call requested. Open and unlock iPhone to confirm; call audio can use the glasses over Bluetooth.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        Button("Call emergency contact") { Task { await controller.checkIn.callEmergencyContact() } }
+                            .buttonStyle(.borderedProminent).disabled(!controller.checkIn.canCall)
+                        Button("Dismiss call request") { controller.checkIn.dismissCallRequest() }.font(.footnote)
+                    }
                     if controller.status.backgroundSamples > 0 {
                         statusRow("Background data", value: "\(controller.status.backgroundSamples) samples received", color: .green)
                     }
@@ -80,7 +112,7 @@ struct ConnectionView: View {
                     Text("Input timing needs attention: \(controller.status.latePackets) late packets.").font(.footnote).foregroundStyle(.orange)
                 }
                 if let error = controller.error { Text(error).font(.footnote).foregroundStyle(.red) }
-                Text("\(controller.cameraPolicy.title) · Sound and vibration off").font(.footnote).foregroundStyle(.secondary)
+                Text("\(controller.cameraPolicy.title) · Vibration off · Voice only after a confirmed fall").font(.footnote).foregroundStyle(.secondary)
             }.padding(28).padding(.top, 32)
         }.background(.white)
             .task { await controller.disconnectionAlerts.refreshPermission() }

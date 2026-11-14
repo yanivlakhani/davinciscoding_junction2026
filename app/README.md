@@ -49,7 +49,8 @@ MODAL_AUTH_MODE = x-api-key
 ```
 
 Build the `FallApp` scheme for your phone. Grant camera access through the app's
-explicit permission flow. No microphone, sound or vibration is enabled.
+explicit permission flow. Enable Spoken fall check-in separately to allow microphone and speech recognition.
+Voice plays only for a server-confirmed fall; vibration remains off.
 
 The Modal API key lives in the phone's Keychain. For a **Debug** installation,
 unlock the phone and bootstrap it from a private key file:
@@ -105,10 +106,16 @@ Background/locked-phone operation depends on the active Meta session and iOS.
 Force-quit recovery is not promised. Optional silent disconnection notifications
 require iOS permission and cannot be guaranteed after process termination.
 
-The app currently displays upload acceptance, not the visual model's SI/NO
-verdict. Provider errors and insufficient imagery need explicit result handling;
-HTTP 200 alone does not prove a successful prediction. Server-side atomic
-idempotency and system-managed background upload recovery are also pending.
+The app displays the server visual verdict separately from upload receipt.
+A negative result finishes the event while sensors keep monitoring. An enabled
+positive-result check-in uses ElevenLabs and Apple speech recognition for staged
+questions. Explicit email consent or two unanswered healthy listening windows
+triggers a server-side email; calls require separate consent and iPhone confirmation.
+The glasses can serve as Bluetooth call audio; DAT does not place a Meta AI call.
+Phone location is optional and timestamped, never assumed to be a fresh fix while locked.
+See [spoken check-in setup and API](contracts/CHECK_IN.md). Atomic email claims
+prevent automatic repeat sends; vision-request idempotency and system-managed
+background upload recovery remain pending.
 Full seven-frame glasses-to-model validation still requires a physical capture.
 
 Personal signing/configuration, credentials, recordings, session logs, historical

@@ -13,7 +13,7 @@ from assess_capture_latency import assess
 DEVICE = None
 BUNDLE = 'org.local.fallapp.development'
 UUID = r'[A-Fa-f0-9-]{36}'
-ALLOWED = re.compile(r'(?:sessions/' + UUID + r'/(?:motion|ordered-motion|events|latency)\.jsonl|sessions/' + UUID + r'/(?:session|session-end|rule-configuration)\.json|camera-streams/' + UUID + r'/timeline\.jsonl|captures/' + UUID + r'-[0-9]+/(?:trigger|timing|buffer|capture|attempt-[0-9]+-error)\.json|(?:delivered|outbox|server-responses)/' + UUID + r'-[0-9]+\.json|server-status\.json|network\.jsonl)\Z')
+ALLOWED = re.compile(r'(?:sessions/' + UUID + r'/(?:motion|ordered-motion|events|latency)\.jsonl|sessions/' + UUID + r'/(?:session|session-end|rule-configuration)\.json|camera-streams/' + UUID + r'/timeline\.jsonl|captures/' + UUID + r'-[0-9]+/(?:trigger|timing|buffer|capture|attempt-[0-9]+-error)\.json|(?:delivered|outbox|server-responses|check-ins|check-in-outbox|check-in-responses)/' + UUID + r'-[0-9]+(?:-(?:initial|contact|contact_retry|decline|decline_retry|call))?\.json|server-status\.json|network\.jsonl)\Z')
 
 def run(args):
     return subprocess.run(args, check=True, capture_output=True, text=True)
@@ -43,7 +43,7 @@ def main():
         parts = PurePosixPath(name).parts
         if parts[0] == 'sessions' and parts[1] not in ids:
             continue
-        if parts[0] in ('captures', 'delivered', 'outbox', 'server-responses') and not any(parts[1].startswith(i + '-') for i in ids):
+        if parts[0] in ('captures', 'delivered', 'outbox', 'server-responses', 'check-ins', 'check-in-outbox', 'check-in-responses') and not any(parts[1].startswith(i + '-') for i in ids):
             continue
         selected.append(name)
     output = Path(__file__).resolve().parents[1] / 'data' / 'latency-assessments' / datetime.now().strftime('%Y%m%d-%H%M%S-%f-phone-logs')

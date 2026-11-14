@@ -58,11 +58,18 @@
 	<string>Capture one-second image bursts from your glasses after a fall alert.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Connect to your Meta glasses over the local network.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Include your timestamped phone location in a fall alert email to your emergency contact.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Hear your reply through the glasses microphone after a server-confirmed fall.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Transcribe your spoken check-in reply and send its text to your fall-monitoring server for analysis.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>
 		<string>bluetooth-peripheral</string>
 		<string>external-accessory</string>
+		<string>audio</string>
 	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>

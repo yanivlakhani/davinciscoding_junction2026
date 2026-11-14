@@ -29,6 +29,7 @@ final class GlassesController {
     private let root: URL
     private let delivery: ModalDelivery
     let capture: FallCapture
+    let checkIn: FallCheckIn
     @ObservationIgnored private var session: DeviceSession?
     @ObservationIgnored private var motion: MWDATMotion.Motion?
     @ObservationIgnored private var runtime: MonitoringSession?
@@ -41,6 +42,7 @@ final class GlassesController {
     private(set) var monitoringHealthy = true
     @ObservationIgnored private var startingMotion = false
     @ObservationIgnored private var cleaningUp = false
+    @ObservationIgnored private var monitoringContexts: [String: (name: String, startedAt: Date)] = [:]
 
     init(startupError: String?) {
         wearables = Wearables.shared
@@ -49,9 +51,17 @@ final class GlassesController {
         let setup = ModalSettings.configured()
         delivery = ModalDelivery(root: root, settings: setup.settings, configurationMessage: setup.message)
         capture = FallCapture(root: root, delivery: delivery)
+        checkIn = FallCheckIn(root: root, delivery: delivery)
         wantsMonitoring = preferences.monitoringRequested
         showMonitoringConsent = !preferences.agreed
         error = startupError
+        checkIn.setCameraSuspended = { [weak self] value in try await self?.capture.suspendForCheckIn(value) }
+        checkIn.onFinished = { [weak self] in
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(1))
+                self?.connectIfReady()
+            }
+        }
         guard startupError == nil else { return }
         tasks.append(Task { [weak self, wearables] in
             for await _ in wearables.registrationStateStream() { self?.connectIfReady() }
@@ -65,6 +75,7 @@ final class GlassesController {
                 do {
                     if let runtime = self.runtime { self.status = try await runtime.refresh() }
                     self.deliveryStatus = try await self.delivery.snapshot()
+                    self.checkIn.update(self.deliveryStatus)
                     await self.capture.updateFeedback()
                 } catch { await self.inputFailed(error.localizedDescription) }
                 try? await Task.sleep(for: .milliseconds(200))
@@ -79,9 +90,17 @@ final class GlassesController {
                 try? await Task.sleep(for: .seconds(5))
             }
         })
+        tasks.append(Task { [weak self, delivery] in
+            for await assessment in delivery.assessments {
+                guard let self, self.wantsMonitoring,
+                      let context = self.monitoringContexts[String(assessment.eventId.prefix(36))] else { continue }
+                await self.checkIn.handle(assessment, glassesName: context.name)
+            }
+        })
     }
 
     isolated deinit {
+        checkIn.stop()
         for task in tasks { task.cancel() }
         sampleTask?.cancel(); processingTask?.cancel(); motionInbox?.finish(); motion?.stop(); session?.stop()
         motionTokens.clear(); sessionTokens.clear()
@@ -103,6 +122,8 @@ final class GlassesController {
     }
 
     func disconnect() {
+        checkIn.stop()
+        monitoringContexts.removeAll()
         preferences.requestMonitoring(false)
         wantsMonitoring = false
         disconnectionAlerts.stoppedByUser()
@@ -141,7 +162,7 @@ final class GlassesController {
     }
 
     private func connectIfReady() {
-        guard preferences.agreed, wantsMonitoring, session == nil, !cleaningUp else { return }
+        guard preferences.agreed, wantsMonitoring, session == nil, !cleaningUp, !checkIn.busy else { return }
         guard wearables.registrationState == .registered else { connection = "Connect with Meta AI"; return }
         guard selector.activeDevice != nil else { connection = "Waiting for glasses"; return }
         do {
@@ -204,6 +225,10 @@ final class GlassesController {
                 }
             })
             self.runtime = runtime
+            monitoringContexts[runtime.id] = (session.device?.name ?? "", Date())
+            if monitoringContexts.count > 8, let oldest = monitoringContexts.min(by: { $0.value.startedAt < $1.value.startedAt })?.key {
+                monitoringContexts.removeValue(forKey: oldest)
+            }
             status = MonitoringStatus()
             try await runtime.setBackgrounded(phoneBackgrounded)
             guard self.session === session, session.state == .started, wantsMonitoring else {

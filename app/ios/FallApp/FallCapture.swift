@@ -12,6 +12,7 @@ final class FallCapture {
     private(set) var busy = false
     private(set) var cameraActive = false
     private(set) var cameraStopFailed = false
+    private var voiceSuspended = false
     private(set) var policy: CameraStartPolicy = .onMovement
     private(set) var codec: CameraCodec = .hevc
     @ObservationIgnored private var stream: FallCameraStream?
@@ -59,7 +60,7 @@ final class FallCapture {
         case "SUSPICIOUS_MOVEMENT", "VERIFYING":
             candidateActive = true
             if change.state == "SUSPICIOUS_MOVEMENT" { yellowDecisionNs = change.phoneUptimeNs }
-            if !busy, policy == .onYellow || policy == .onMovement { extendWarmWindow(); warm() }
+            if !busy, !voiceSuspended, policy == .onYellow || policy == .onMovement { extendWarmWindow(); warm() }
         case "MONITORING":
             candidateActive = false
             yellowDecisionNs = nil
@@ -69,7 +70,7 @@ final class FallCapture {
     }
 
     func earlyMotion(_ cue: CameraWarmupCue) {
-        guard policy == .onMovement, !busy else { return }
+        guard policy == .onMovement, !busy, !voiceSuspended else { return }
         earlyCueNs = cue.phoneUptimeNs
         extendWarmWindow(); warm()
     }
@@ -88,6 +89,16 @@ final class FallCapture {
     }
 
     func capture(_ notice: FallNotice) {
+        guard !voiceSuspended else {
+            let directory = root.appendingPathComponent("captures").appendingPathComponent(notice.eventId)
+            Task.detached {
+                try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                let manifest = CaptureManifest(eventId: notice.eventId, complete: false, frames: [], durationSeconds: 0,
+                    error: "Camera deferred while another confirmed event owns the spoken check-in")
+                try? JSONEncoder().encode(manifest).write(to: directory.appendingPathComponent("capture.json"), options: .atomic)
+            }
+            return
+        }
         guard policy != .disabled else { return }
         pending.append(notice); busy = true; warmExpiryTask?.cancel()
         warmUntil = nil
@@ -98,6 +109,20 @@ final class FallCapture {
                 await record(pending.removeFirst())
             }
         }
+    }
+
+    func suspendForCheckIn(_ value: Bool) async throws {
+        voiceSuspended = value
+        guard value else {
+            if policy == .continuous { warm() }
+            return
+        }
+        warmUntil = nil; warmExpiryTask?.cancel(); warmTask?.cancel()
+        await warmTask?.value
+        let deadline = ContinuousClock.now + .seconds(10)
+        while busy, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(50)) }
+        guard !busy else { throw RecordingFailure.message("Camera capture still active; voice deferred") }
+        if let stream, !(await stopCamera(stream)) { throw RecordingFailure.message("Camera shutdown unconfirmed; cannot start voice") }
     }
 
     func stop() async {
@@ -126,7 +151,7 @@ final class FallCapture {
     }
 
     private func warm() {
-        guard policy != .disabled, !needsPermission, !busy, warmTask == nil, let stream else { return }
+        guard policy != .disabled, !needsPermission, !busy, !voiceSuspended, warmTask == nil, let stream else { return }
         status = "Opening camera early · \(codec.title)"
         warmTask = Task { [weak self] in
             defer { self?.warmTask = nil }

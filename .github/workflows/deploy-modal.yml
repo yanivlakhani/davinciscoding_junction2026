@@ -24,6 +24,10 @@ jobs:
           python-version: "3.12"
       - name: Check backend syntax
         run: python -c "from pathlib import Path; [compile(p.read_text(), str(p), 'exec') for p in Path('backend').glob('*.py')]"
+      - name: Install backend test dependencies
+        run: pip install -r backend/requirements-test.txt
+      - name: Test check-in flow without provider calls
+        run: python -m unittest discover -s backend/tests -v
       - name: Deployment credentials not configured
         if: ${{ env.MODAL_TOKEN_ID == '' || env.MODAL_TOKEN_SECRET == '' }}
         run: echo "::notice::Modal deployment skipped. Configure MODAL_TOKEN_ID and MODAL_TOKEN_SECRET repository secrets to enable it."
