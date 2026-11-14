@@ -210,13 +210,59 @@ try {
     return {
       open: row.classList.contains("is-open"),
       aria: row.getAttribute("aria-expanded"),
-      chips: Array.from(row.querySelectorAll(".comp-chip")).map((c) => c.firstChild.textContent.trim()),
+      names: Array.from(row.querySelectorAll(".comp-name")).map((c) => c.textContent.trim()),
+      rows: row.querySelectorAll(".comp-row").length,
+      ticks: Array.from(row.querySelectorAll(".comp-row .verified")).map((v) => v.textContent.trim()),
+      tickColor: getComputedStyle(row.querySelector(".comp-row .verified")).color,
     };
   });
   check("tap opens the first group", firstGroup.open, true);
   check("aria-expanded flips", firstGroup.aria, "true");
-  check("component chips show real package names", firstGroup.chips.includes("anthropic"), true);
+  check("component rows show real package names", firstGroup.names.includes("anthropic"), true);
+  check("every component row has a tick", firstGroup.ticks.length, firstGroup.rows);
+  check("every tick reads Verified", firstGroup.ticks.every((t) => t === "Verified"), true);
+  check("tick is the safety green", firstGroup.tickColor, GREEN);
+
+  // Across the whole panel: one tick per runtime component, none missing.
+  const allTicks = await page.evaluate(() => ({
+    rows: document.querySelectorAll("#trust-groups .comp-row").length,
+    verified: document.querySelectorAll("#trust-groups .comp-row .verified:not(.is-pending)").length,
+    expected: window.TRUST_DATA.runtimeTotal,
+  }));
+  check("a row exists for every runtime component", allTicks.rows, allTicks.expected);
+  check("every runtime component is verified", allTicks.verified, allTicks.expected);
+
+  // CRACI banner under the seal.
+  const band = await page.evaluate(() => {
+    const b = document.getElementById("craci-band");
+    const r = b.getBoundingClientRect();
+    const seal = document.getElementById("trust-seal").getBoundingClientRect();
+    return {
+      text: b.textContent.replace(/\s+/g, " ").trim(),
+      visible: r.width > 0 && r.height > 0,
+      flush: Math.abs(r.top - seal.bottom) < 2,
+    };
+  });
+  check("CRACI banner names CRACI", /Built and verified by\s*CRACI/.test(band.text), true);
+  check("CRACI banner is visible", band.visible, true);
+  check("CRACI banner sits flush under the seal", band.flush, true);
   await page.screenshot({ path: join(shotsDir, "12-trust-group-open.png") });
+
+  // The longest group has the longest package names next to the tick, so it
+  // is the one most likely to wrap badly. Open it and look.
+  await page.evaluate(() => {
+    document.getElementById("toast").classList.remove("on");
+    const rows = document.querySelectorAll("#trust-groups .group-row");
+    rows[0].classList.remove("is-open");
+    rows[4].classList.add("is-open");
+    rows[4].scrollIntoView({ block: "start" });
+  });
+  await settle();
+  await page.screenshot({ path: join(shotsDir, "15-trust-display-group.png") });
+  await page.evaluate(() => {
+    document.querySelectorAll("#trust-groups .group-row").forEach((r) => r.classList.remove("is-open"));
+    document.getElementById("screen-trust").scrollTo(0, 0);
+  });
 
   // One more framing of the trust screen scrolled to the CRACI credits.
   // Dismiss any lingering toast from earlier steps so the credit panel is
@@ -237,9 +283,13 @@ try {
   await settle();
   const raw = await page.evaluate(() => {
     const t = (id) => document.getElementById(id).textContent.trim();
-    const rows = (sel) => Array.from(document.querySelectorAll(sel + " .raw-item span:first-child"))
+    const rows = (sel) => Array.from(document.querySelectorAll(sel + " .raw-name"))
       .map((e) => e.textContent.trim());
+    const items = document.querySelectorAll(".raw-item");
     return {
+      rawItems: items.length,
+      rawTicks: document.querySelectorAll(".raw-item .verified:not(.is-pending)").length,
+      rawBand: document.getElementById("craci-band-raw").textContent.replace(/\s+/g, " ").trim(),
       onScreen: document.getElementById("screen-rawsbom").classList.contains("on"),
       tabStillTrust: document.querySelector('.tab[data-tab="trust"]').classList.contains("is-active"),
       serverRows: rows("#raw-server"),
@@ -254,6 +304,21 @@ try {
   check("glasses list includes react", raw.glassesRows.some((r) => r.startsWith("react ")), true);
   check("glasses list includes @wearables-ui-toolkit/mrbd", raw.glassesRows.some((r) => r.startsWith("@wearables-ui-toolkit/mrbd")), true);
   check("developer-tools count is surfaced honestly", Number(raw.devN) > 0, true);
+  check("every raw row is ticked as verified", raw.rawTicks, raw.rawItems);
+  check("raw list names CRACI as the verifier", /Verified by\s*CRACI/.test(raw.rawBand), true);
+  // The two ends of each band must not overlap: this is the bug a text
+  // assertion cannot see, so measure the boxes.
+  const overlap = await page.evaluate(() => {
+    const gap = (id) => {
+      const b = document.getElementById(id);
+      const mark = b.querySelector(".craci-by").getBoundingClientRect();
+      const where = b.querySelector(".craci-where").getBoundingClientRect();
+      return Math.round(where.left - mark.right);
+    };
+    return { main: gap("craci-band"), raw: gap("craci-band-raw") };
+  });
+  check("raw band: label and CRACI do not overlap", overlap.raw >= 4, true);
+  await page.screenshot({ path: join(shotsDir, "14-rawsbom-verified.png") });
   await page.evaluate(() => document.getElementById("raw-back").click());
   await settle();
   check("back returns to trust", await page.$eval("#screen-trust", (e) => e.classList.contains("on")), true);

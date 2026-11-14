@@ -22,12 +22,14 @@ window.TRUST_DATA = {
         {
           "name": "anthropic",
           "source": "PyPI",
-          "where": "server"
+          "where": "server",
+          "verified": true
         },
         {
           "name": "numpy",
           "source": "PyPI",
-          "where": "server"
+          "where": "server",
+          "verified": true
         }
       ],
       "count": 2
@@ -40,7 +42,8 @@ window.TRUST_DATA = {
         {
           "name": "opencv-python-headless",
           "source": "PyPI",
-          "where": "server"
+          "where": "server",
+          "verified": true
         }
       ],
       "count": 1
@@ -53,7 +56,8 @@ window.TRUST_DATA = {
         {
           "name": "httpx",
           "source": "PyPI",
-          "where": "server"
+          "where": "server",
+          "verified": true
         }
       ],
       "count": 1
@@ -66,17 +70,20 @@ window.TRUST_DATA = {
         {
           "name": "fastapi",
           "source": "PyPI",
-          "where": "server"
+          "where": "server",
+          "verified": true
         },
         {
           "name": "pydantic",
           "source": "PyPI",
-          "where": "server"
+          "where": "server",
+          "verified": true
         },
         {
           "name": "python-multipart",
           "source": "PyPI",
-          "where": "server"
+          "where": "server",
+          "verified": true
         }
       ],
       "count": 3
@@ -90,43 +97,50 @@ window.TRUST_DATA = {
           "name": "@wearables-ui-toolkit/androidx-shapes",
           "version": "130.33.0",
           "source": "npm",
-          "where": "glasses"
+          "where": "glasses",
+          "verified": true
         },
         {
           "name": "@wearables-ui-toolkit/foundation",
           "version": "130.33.0",
           "source": "npm",
-          "where": "glasses"
+          "where": "glasses",
+          "verified": true
         },
         {
           "name": "@wearables-ui-toolkit/icons",
           "version": "130.33.0",
           "source": "npm",
-          "where": "glasses"
+          "where": "glasses",
+          "verified": true
         },
         {
           "name": "@wearables-ui-toolkit/mrbd",
           "version": "130.33.0",
           "source": "npm",
-          "where": "glasses"
+          "where": "glasses",
+          "verified": true
         },
         {
           "name": "react",
           "version": "19.3.1",
           "source": "npm",
-          "where": "glasses"
+          "where": "glasses",
+          "verified": true
         },
         {
           "name": "react-dom",
           "version": "19.3.1",
           "source": "npm",
-          "where": "glasses"
+          "where": "glasses",
+          "verified": true
         },
         {
           "name": "scheduler",
           "version": "0.28.0",
           "source": "npm",
-          "where": "glasses"
+          "where": "glasses",
+          "verified": true
         }
       ],
       "count": 7
@@ -136,71 +150,85 @@ window.TRUST_DATA = {
     "server": [
       {
         "name": "anthropic",
-        "source": "PyPI"
+        "source": "PyPI",
+        "verified": true
       },
       {
         "name": "opencv-python-headless",
-        "source": "PyPI"
+        "source": "PyPI",
+        "verified": true
       },
       {
         "name": "numpy",
-        "source": "PyPI"
+        "source": "PyPI",
+        "verified": true
       },
       {
         "name": "httpx",
-        "source": "PyPI"
+        "source": "PyPI",
+        "verified": true
       },
       {
         "name": "fastapi",
-        "source": "PyPI"
+        "source": "PyPI",
+        "verified": true
       },
       {
         "name": "python-multipart",
-        "source": "PyPI"
+        "source": "PyPI",
+        "verified": true
       },
       {
         "name": "pydantic",
-        "source": "PyPI"
+        "source": "PyPI",
+        "verified": true
       }
     ],
     "glasses": [
       {
         "name": "@wearables-ui-toolkit/androidx-shapes",
         "version": "130.33.0",
-        "source": "npm"
+        "source": "npm",
+        "verified": true
       },
       {
         "name": "@wearables-ui-toolkit/foundation",
         "version": "130.33.0",
-        "source": "npm"
+        "source": "npm",
+        "verified": true
       },
       {
         "name": "@wearables-ui-toolkit/icons",
         "version": "130.33.0",
-        "source": "npm"
+        "source": "npm",
+        "verified": true
       },
       {
         "name": "@wearables-ui-toolkit/mrbd",
         "version": "130.33.0",
-        "source": "npm"
+        "source": "npm",
+        "verified": true
       },
       {
         "name": "react",
         "version": "19.3.1",
-        "source": "npm"
+        "source": "npm",
+        "verified": true
       },
       {
         "name": "react-dom",
         "version": "19.3.1",
-        "source": "npm"
+        "source": "npm",
+        "verified": true
       },
       {
         "name": "scheduler",
         "version": "0.28.0",
-        "source": "npm"
+        "source": "npm",
+        "verified": true
       }
     ],
     "developerToolsCount": 98
   },
-  "generatedAt": "2026-11-14T21:59:11.887Z"
+  "generatedAt": "2026-11-14T22:13:25.227Z"
 };

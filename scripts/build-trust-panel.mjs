@@ -131,11 +131,20 @@ const mobileBuild   = mobileComponents;
 // ---------------------------------------------------------------------------
 const bucket = Object.fromEntries(GROUPS.map((g) => [g.id, []]));
 
+// A component is shown as verified only when the CRACI run that recorded it
+// succeeded and its vulnerability check came back clean. CRACI reports the
+// vulnerability total for the run, not per package, so a non-zero total
+// withdraws every tick rather than guessing which components are affected.
+// The UI then says "Being checked" instead.
+const runClean =
+  RUN.jobsSucceeded === RUN.jobsTotal && RUN.knownVulnerabilities === 0;
+
 for (const c of BACKEND_RUNTIME) {
   bucket[c.purpose].push({
     name: c.name,
     source: "PyPI",
     where: "server",
+    verified: runClean,
   });
 }
 for (const c of glassesRuntime) {
@@ -144,6 +153,7 @@ for (const c of glassesRuntime) {
     version: c.version,
     source: "npm",
     where: "glasses",
+    verified: runClean,
   });
 }
 
@@ -168,9 +178,9 @@ if (runtimeTotal === 0) {
 // Raw technical list for the "see the full list" view: every runtime
 // component, grouped by where it runs, with its registry source.
 const raw = {
-  server: BACKEND_RUNTIME.map((c) => ({ name: c.name, source: "PyPI" })),
+  server: BACKEND_RUNTIME.map((c) => ({ name: c.name, source: "PyPI", verified: runClean })),
   glasses: glassesRuntime.map((c) => ({
-    name: c.name, version: c.version, source: "npm",
+    name: c.name, version: c.version, source: "npm", verified: runClean,
   })).sort((a, b) => a.name.localeCompare(b.name)),
   developerToolsCount: developerToolsTotal,
 };

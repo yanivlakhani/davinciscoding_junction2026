@@ -733,6 +733,68 @@
     letter-spacing: 1.4px;
     text-transform: uppercase;
   }
+  /* CRACI band: sits flush under the seal like the certifying body's line
+     on a physical label. Text wordmark only; it is not CRACI's logo. */
+  .craci-band {
+    margin: 0 20px;
+    padding: 9px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    background: var(--ink);
+    color: var(--paper);
+    border: 1.5px solid var(--ink);
+    border-top: none;
+  }
+  .craci-band--alone { border-top: 1.5px solid var(--ink); margin-bottom: 16px; }
+  .craci-by {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+  .craci-by small {
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: var(--faint);
+    white-space: nowrap;
+  }
+  .craci-mark {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 2.6px;
+    line-height: 1;
+  }
+  .craci-where {
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--faint);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Green tick + "Verified", shown per component. Only rendered green when
+     the data says the run was clean; otherwise it reads "Being checked". */
+  .verified {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--green);
+    white-space: nowrap;
+  }
+  .verified svg { width: 13px; height: 13px; display: block; }
+  .verified.is-pending { color: var(--grey); }
+
   .seal-badge {
     width: 48px;
     height: 52px;
@@ -843,20 +905,25 @@
     color: var(--ink);
   }
   .group-row.is-open .group-detail { display: block; }
-  .comp-chip {
-    display: inline-block;
-    margin: 2px 6px 2px 0;
-    padding: 2px 7px;
-    background: var(--paper);
-    border: 1px solid var(--rule);
+  .comp-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .comp-row:first-child { border-top: none; padding-top: 0; }
+  .comp-row:last-child { padding-bottom: 0; }
+  .comp-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .comp-name {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 10.5px;
+    font-size: 11px;
     letter-spacing: -0.3px;
     color: var(--ink);
+    overflow-wrap: anywhere;
   }
-  .comp-chip-where {
-    margin-left: 4px;
-    font-family: inherit;
+  .comp-where {
     font-size: 8.5px;
     font-weight: 700;
     letter-spacing: 1.1px;
@@ -972,18 +1039,20 @@
   .raw-item {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
+    align-items: center;
     gap: 10px;
-    padding: 8px 0;
+    padding: 9px 0;
     border-bottom: 1px solid var(--rule);
+  }
+  .raw-item:last-child { border-bottom: 1px solid var(--ink); }
+  .raw-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .raw-name {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-size: 11.5px;
     letter-spacing: -0.3px;
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
-  .raw-item:last-child { border-bottom: 1px solid var(--ink); }
   .raw-src {
-    flex-shrink: 0;
     font-family: inherit;
     font-size: 9px;
     font-weight: 700;
@@ -1280,6 +1349,10 @@
         </p>
       </div>
     </div>
+    <div class="craci-band" id="craci-band">
+      <span class="craci-by"><small>Built and verified by</small><span class="craci-mark">CRACI</span></span>
+      <span class="craci-where">Helsinki</span>
+    </div>
 
     <div class="section" style="margin-top: 22px;">
       <div class="section-head">
@@ -1322,6 +1395,11 @@
       &larr; Back to what&rsquo;s inside
     </button>
     <h1 class="h-title">Technical list</h1>
+
+    <div class="craci-band craci-band--alone" id="craci-band-raw">
+      <span class="craci-by"><small>Verified by</small><span class="craci-mark">CRACI</span></span>
+      <span class="craci-where">Build-time SBOM</span>
+    </div>
 
     <p class="raw-lead">
       Every software component running in the product, grouped by where it
@@ -1541,6 +1619,14 @@
     return `${when.getUTCDate()} ${months[when.getUTCMonth()]} ${when.getUTCFullYear()}, ${hh}:${mm} UTC`;
   }
 
+  // Green tick + "Verified" when the record says so, otherwise a plain
+  // "Being checked". Nothing is ever painted green by default.
+  function verifiedTag(ok) {
+    return ok
+      ? '<span class="verified"><svg viewBox="0 0 14 14" aria-hidden="true"><rect width="14" height="14" fill="#00933C"/><path d="M3.4 7.3 L5.9 9.7 L10.6 4.6" stroke="#EEEBE3" stroke-width="1.8" fill="none" stroke-linecap="square"/></svg>Verified</span>'
+      : '<span class="verified is-pending"><svg viewBox="0 0 14 14" aria-hidden="true"><rect x="0.75" y="0.75" width="12.5" height="12.5" fill="none" stroke="#6F6C64" stroke-width="1.5"/></svg>Being checked</span>';
+  }
+
   function renderTrust() {
     const d = window.TRUST_DATA;
     const seal = $("trust-seal");
@@ -1550,6 +1636,9 @@
       $("trust-groups").innerHTML = "";
       seal.style.borderColor = "var(--red)";
       $("trust-seal").querySelector(".seal-badge").style.color = "var(--red)";
+      // Without a record there is nothing for CRACI to have verified.
+      $("craci-band").style.display = "none";
+      $("craci-band-raw").style.display = "none";
       return;
     }
 
@@ -1574,7 +1663,7 @@
           <span class="group-chev"></span>
         </div>
         <div class="group-detail">
-          ${g.components.map((c) => `<span class="comp-chip">${escape(c.name)}<span class="comp-chip-where">${escape(c.where)}</span></span>`).join("")}
+          ${g.components.map((c) => `<div class="comp-row"><span class="comp-main"><span class="comp-name">${escape(c.name)}</span><span class="comp-where">${escape(c.where)}</span></span>${verifiedTag(c.verified)}</div>`).join("")}
         </div>
       </button>
     `).join("");
@@ -1590,7 +1679,7 @@
     $("trust-stat-jobs").textContent = d.run.jobsSucceeded + "/" + d.run.jobsTotal;
 
     const rawRow = (c) =>
-      `<div class="raw-item"><span>${escape(c.name)}${c.version ? " " + escape(c.version) : ""}</span><span class="raw-src">${escape(c.source)}</span></div>`;
+      `<div class="raw-item"><span class="raw-main"><span class="raw-name">${escape(c.name)}${c.version ? " " + escape(c.version) : ""}</span><span class="raw-src">${escape(c.source)}</span></span>${verifiedTag(c.verified)}</div>`;
     $("raw-server").innerHTML = d.raw.server.map(rawRow).join("");
     $("raw-glasses").innerHTML = d.raw.glasses.map(rawRow).join("");
     $("raw-server-n").textContent = d.raw.server.length + (d.raw.server.length === 1 ? " item" : " items");
