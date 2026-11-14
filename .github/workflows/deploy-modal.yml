@@ -4,9 +4,12 @@ on:
   push:
     branches: [main]
     paths:
-      - "server/**"
+      - "backend/**"
       - ".github/workflows/deploy-modal.yml"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
@@ -19,8 +22,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install modal
-      - run: modal deploy server/fall_server.py
+      - name: Check backend syntax
+        run: python -c "from pathlib import Path; [compile(p.read_text(), str(p), 'exec') for p in Path('backend').glob('*.py')]"
+      - name: Deployment credentials not configured
+        if: ${{ env.MODAL_TOKEN_ID == '' || env.MODAL_TOKEN_SECRET == '' }}
+        run: echo "::notice::Modal deployment skipped. Configure MODAL_TOKEN_ID and MODAL_TOKEN_SECRET repository secrets to enable it."
+      - name: Install Modal
+        if: ${{ env.MODAL_TOKEN_ID != '' && env.MODAL_TOKEN_SECRET != '' }}
+        run: pip install modal
+      - name: Deploy backend
+        if: ${{ env.MODAL_TOKEN_ID != '' && env.MODAL_TOKEN_SECRET != '' }}
+        run: modal deploy backend/fall_server.py
       - name: Smoke test
-        if: ${{ vars.MODAL_URL != '' }}
-        run: curl -fsS "${{ vars.MODAL_URL }}/health"
+        if: ${{ env.MODAL_TOKEN_ID != '' && env.MODAL_TOKEN_SECRET != '' && vars.MODAL_URL != '' }}
+        env:
+          MODAL_URL: ${{ vars.MODAL_URL }}
+        run: curl -fsS "${MODAL_URL%/}/health"

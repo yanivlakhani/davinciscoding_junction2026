@@ -1,6 +1,7 @@
 # Phone to Modal integration
 
-This client matches backend commit `81ecb96` on branch `backend`. Configure your
+The API implementation is in `backend/fall_server.py` on `main`; the seven-frame
+contract was introduced in commit `81ecb96`. Configure your
 Modal URL locally; the existing workspace deployment is
 `https://lorejob--fall-detection-backend-fastapi-app.us-east.modal.run`.
 Authentication is the `x-api-key` header, read from iPhone Keychain.

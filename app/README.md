@@ -1,7 +1,7 @@
 # FallApp for iPhone and Meta glasses
 
 Native SwiftUI app with a local deterministic fall detector, Meta DAT glasses
-connection, JPEG capture and authenticated integration with `../fall_server.py`.
+connection, JPEG capture and authenticated integration with `../backend/fall_server.py`.
 The selected detector is `deterministic-baseline-v1`; model code and configuration
 are pinned by `model-lock.json`.
 

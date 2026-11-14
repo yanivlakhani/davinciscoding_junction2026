@@ -5,9 +5,9 @@ Evaluate the vision module on a folder of images via the Modal server (/classify
 Usage:
   pip install requests
   export FALL_API_KEY=...            # same as API_KEY in the Modal secret
-  python3 eval_images.py /Users/eddi/Downloads/test_api
-  python3 eval_images.py /Users/eddi/Downloads/test_api --force   # also send frames rejected by quality gate
-  python3 eval_images.py /Users/eddi/Downloads/test_api --model claude-haiku-5-5   # compare models
+  python3 backend/eval_images.py /path/to/dataset
+  python3 backend/eval_images.py /path/to/dataset --force   # also send frames rejected by quality gate
+  python3 backend/eval_images.py /path/to/dataset --model claude-haiku-5-5   # compare models
 
 Ground truth (optional, first match wins):
   1. labels.csv in the folder: filename,label   (label: ground | not_ground)

@@ -2,3 +2,11 @@
 .modal.toml
 __pycache__/
 *.pyc
+.DS_Store
+.venv/
+backend/data/
+backend/datasets/
+backend/results_*/
+backend/evaluation_history.jsonl
+backend/model_comparison.json
+backend/model_comparison.md

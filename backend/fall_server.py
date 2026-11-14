@@ -14,8 +14,8 @@ Setup:
   pip install modal && modal setup
   modal secret create fall-secrets ANTHROPIC_API_KEY=... API_KEY=<random string for the app> \
       NOTIFY_WEBHOOK_URL=https://ntfy.sh/<your-topic>      # optional
-Dev:    modal serve fall_server.py      (hot reload, temporary URL)
-Deploy: modal deploy fall_server.py     (stable URL)
+Dev:    modal serve backend/fall_server.py      (from repository root)
+Deploy: modal deploy backend/fall_server.py     (stable URL)
 """
 import os
 import modal

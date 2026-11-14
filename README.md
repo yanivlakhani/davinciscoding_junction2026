@@ -1,34 +1,43 @@
-# davinciscoding_junction2026
+# Fall detection with Meta glasses
 
-## iPhone application
+One repository for the iPhone application and its Modal backend.
 
-The native glasses application, local detector and Modal integration are in
-[`app/`](app/README.md). Setup and test instructions are included there.
+| Folder | Contents |
+| --- | --- |
+| [`app/`](app/README.md) | Native iPhone app, local deterministic detector, camera capture, Modal transport and tests |
+| [`app/ios/`](app/ios/) | Xcode project and the actual SwiftUI application |
+| [`backend/`](backend/README.md) | Modal/FastAPI server and model evaluation tool |
+| [`ios/`](ios/README.md) | Standalone Swift backend-client and optional voice-flow examples |
 
-## Frame selection for `/analyze`
+The app connects glasses, monitors motion locally and captures one second at
+requested 7 fps after a fall alert. It sends up to seven ordered JPEGs together
+to `/analyze`; no MP4 is created. The backend selects usable/best frames,
+restores their chronological order and sends them in one Claude request.
 
-Send 1-7 JPEG frames in chronological order. The optional multipart field
-`best_n` (1-7, default 7) selects up to N usable frames with the highest
-sharpness. Unusable frames are still rejected. Selected frames are sent to
-Claude in their original chronological order, preserving timestamps inferred
-from `duration_s` and the original frame positions.
+Start with [app setup](app/README.md) and [backend setup](backend/README.md).
+Personal signing settings, credentials, recordings and runtime artifacts are
+excluded from Git. The default development workflow now uses `main`.
 
-The response includes `best_n`, `n_frames`, `selected_frame_indices` (zero-based)
-and `selected_frame_times_s`. The iOS client accepts `bestN`, defaulting to 7.
+## Checks
 
-## Confrontare modelli di visione
-
-`eval_images.py` permette di confrontare i modelli Claude configurati nel backend.
-Esegui il comando sullo stesso dataset etichettato, selezionando un modello alla volta:
-
-```bash
-python3 eval_images.py /percorso/al/dataset --model claude-sonnet-5-5
-python3 eval_images.py /percorso/al/dataset --model claude-haiku-5-5
-python3 eval_images.py /percorso/al/dataset --model claude-opus-5-5
+```sh
+python3 app/tools/verify_model.py
+swift test --package-path app/packages/DetectionEngine
 ```
 
-Le chiamate vengono aggiunte a `evaluation_history.jsonl`. Lo script aggiorna
-`model_comparison.json` e `model_comparison.md` nella cartella del dataset; la
-tabella Markdown confronta accuratezza, precisione, recall, specificità, F1,
-ROC-AUC e latenza mediana/p95 tra i soli modelli Claude. Le metriche di qualità
-sono calcolate solo per le immagini con etichetta ground truth.
+## Backend development and deployment
+
+```sh
+modal serve backend/fall_server.py
+modal deploy backend/fall_server.py
+```
+
+The GitHub deployment workflow uses `backend/fall_server.py`. Configure
+`MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` as repository secrets to enable automatic
+Modal deployments on backend changes to `main`; otherwise deployment is explicitly
+skipped. Set optional `MODAL_URL` for its health check.
+
+The app currently shows delivery status rather than a typed visual true/false
+verdict. See [the integration contract](app/contracts/INTEGRATION.md) for remaining
+result-handling and retry limits. Physical seven-frame end-to-end validation
+remains required.
