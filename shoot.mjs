@@ -24,6 +24,8 @@ const shots = [
   ["05-confirm-location", "#/home?confirm=loc"],
   ["06-contacts", "#/contacts"],
   ["07-edit", "#/edit"],
+  ["10-trust", "#/trust"],
+  ["11-rawsbom", "#/rawsbom"],
 ];
 
 let failures = 0;
@@ -163,8 +165,101 @@ try {
   await page.click('.tab[data-tab="home"]'); await settle();
   check("home tab returns home", await page.$eval("#screen-home", (e) => e.classList.contains("on")), true);
 
+  console.log("\nTrust panel");
+  await page.evaluate(() => go("trust")); await settle();
+  // The trust panel must render from the committed SBOM data, not from
+  // placeholders. If data/trust-panel.js is missing the screen would still
+  // load but the headline would read "Record missing" and we'd catch it.
+  const trust = await page.evaluate(() => {
+    const t = (id) => document.getElementById(id).textContent.trim();
+    const groups = Array.from(document.querySelectorAll("#trust-groups .group-row"));
+    return {
+      hasData: !!window.TRUST_DATA,
+      runtimeTotal: window.TRUST_DATA?.runtimeTotal,
+      headline: t("trust-headline"),
+      runtimeN: t("trust-runtime-n"),
+      vulnLine: t("trust-vuln-line"),
+      ago: t("trust-ago"),
+      when: t("trust-when"),
+      groupCount: groups.length,
+      firstGroupOpen: groups[0]?.classList.contains("is-open"),
+      pkgs: t("trust-stat-pkgs"),
+      vulns: t("trust-stat-vulns"),
+      jobs: t("trust-stat-jobs"),
+      tabActive: document.querySelector('.tab[data-tab="trust"]').classList.contains("is-active"),
+    };
+  });
+  check("SBOM data loaded", trust.hasData, true);
+  check("record traces to a real run", trust.headline, "Verified clean");
+  check("runtime count is a real number", Number.isInteger(trust.runtimeTotal) && trust.runtimeTotal > 0, true);
+  check("runtime count surfaced in copy", trust.runtimeN, String(trust.runtimeTotal));
+  check("vulnerability line reflects 0 known", trust.vulnLine, "No known safety issues.");
+  check("'checked' relative time is present", trust.ago.length > 0, true);
+  check("'checked' absolute time is present", /UTC$/.test(trust.when), true);
+  check("five purpose groups rendered", trust.groupCount, 5);
+  check("groups start collapsed", trust.firstGroupOpen, false);
+  check("packages-checked stat surfaces CRACI number", trust.pkgs, "181");
+  check("known-issues stat matches 0 from dashboard", trust.vulns, "0");
+  check("jobs stat matches 5/5 from dashboard", trust.jobs, "5/5");
+  check("trust tab lights up", trust.tabActive, true);
+
+  // Tapping a group should reveal the real component names, not generic text.
+  await page.click("#trust-groups .group-row"); await settle();
+  const firstGroup = await page.evaluate(() => {
+    const row = document.querySelector("#trust-groups .group-row");
+    return {
+      open: row.classList.contains("is-open"),
+      aria: row.getAttribute("aria-expanded"),
+      chips: Array.from(row.querySelectorAll(".comp-chip")).map((c) => c.firstChild.textContent.trim()),
+    };
+  });
+  check("tap opens the first group", firstGroup.open, true);
+  check("aria-expanded flips", firstGroup.aria, "true");
+  check("component chips show real package names", firstGroup.chips.includes("anthropic"), true);
+  await page.screenshot({ path: join(shotsDir, "12-trust-group-open.png") });
+
+  // One more framing of the trust screen scrolled to the CRACI credits.
+  // Dismiss any lingering toast from earlier steps so the credit panel is
+  // unobstructed in the screenshot used for the pitch.
+  await page.evaluate(() => {
+    document.getElementById("toast").classList.remove("on");
+    document.getElementById("screen-trust").scrollTo(0, 99999);
+  });
+  await settle();
+  await page.screenshot({ path: join(shotsDir, "13-trust-bottom.png") });
+  await page.evaluate(() => document.getElementById("screen-trust").scrollTo(0, 0));
+  await settle();
+
+  console.log("\nRaw technical list");
+  // The link sits at the bottom of a scrollable screen, past the viewport.
+  // Click it programmatically rather than fighting the scroll container.
+  await page.evaluate(() => document.getElementById("raw-link").click());
+  await settle();
+  const raw = await page.evaluate(() => {
+    const t = (id) => document.getElementById(id).textContent.trim();
+    const rows = (sel) => Array.from(document.querySelectorAll(sel + " .raw-item span:first-child"))
+      .map((e) => e.textContent.trim());
+    return {
+      onScreen: document.getElementById("screen-rawsbom").classList.contains("on"),
+      tabStillTrust: document.querySelector('.tab[data-tab="trust"]').classList.contains("is-active"),
+      serverRows: rows("#raw-server"),
+      glassesRows: rows("#raw-glasses"),
+      devN: t("raw-dev-n"),
+    };
+  });
+  check("raw screen opens", raw.onScreen, true);
+  check("trust tab stays lit on sub-screen", raw.tabStillTrust, true);
+  check("server list includes anthropic", raw.serverRows.some((r) => r.startsWith("anthropic")), true);
+  check("server list includes opencv-python-headless", raw.serverRows.some((r) => r.startsWith("opencv-python-headless")), true);
+  check("glasses list includes react", raw.glassesRows.some((r) => r.startsWith("react ")), true);
+  check("glasses list includes @wearables-ui-toolkit/mrbd", raw.glassesRows.some((r) => r.startsWith("@wearables-ui-toolkit/mrbd")), true);
+  check("developer-tools count is surfaced honestly", Number(raw.devN) > 0, true);
+  await page.evaluate(() => document.getElementById("raw-back").click());
+  await settle();
+  check("back returns to trust", await page.$eval("#screen-trust", (e) => e.classList.contains("on")), true);
+
   console.log("\nLayout");
-  for (const id of ["screen-home", "screen-contacts", "screen-edit"]) {
+  for (const id of ["screen-home", "screen-contacts", "screen-edit", "screen-trust", "screen-rawsbom"]) {
     await page.evaluate((name) => go(name), id.replace("screen-", ""));
     const overflow = await page.$eval("#" + id, (e) => e.scrollWidth - e.clientWidth);
     check(`${id} has no sideways overflow`, overflow, 0);

@@ -704,6 +704,305 @@
     text-transform: uppercase;
     font-weight: 700;
   }
+
+  /* -------------------------------------------------------------------- */
+  /* Trust screen: a nutrition label for a safety device. Nothing on this */
+  /* screen is cosmetic — every number traces back to a real CRACI run    */
+  /* via data/trust-panel.js. If the record is missing the UI says so     */
+  /* rather than painting a comfortable fiction.                          */
+  /* -------------------------------------------------------------------- */
+  .seal {
+    margin: 10px 20px 0;
+    display: flex;
+    gap: 16px;
+    padding: 20px 16px 16px;
+    background: var(--paper-2);
+    border: 1.5px solid var(--ink);
+    position: relative;
+  }
+  .seal::before {
+    content: "Verified";
+    position: absolute;
+    top: -8px;
+    left: 14px;
+    padding: 1px 8px;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+  }
+  .seal-badge {
+    width: 48px;
+    height: 52px;
+    flex-shrink: 0;
+    color: var(--green);
+  }
+  .seal-text { min-width: 0; flex: 1; }
+  .seal-title {
+    margin: 0 0 6px;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.6px;
+    line-height: 1.05;
+  }
+  .seal-sub {
+    margin: 0 0 10px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--ink);
+  }
+  .seal-sub b { font-weight: 700; }
+  .seal-foot {
+    margin: 0;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: var(--grey);
+    line-height: 1.5;
+  }
+  .seal-foot-time {
+    color: var(--mid);
+    display: block;
+    margin-top: 2px;
+    letter-spacing: 0.4px;
+    text-transform: none;
+    font-weight: 500;
+    font-size: 10px;
+  }
+
+  .groups {
+    margin: 0 20px;
+  }
+  .group-row {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--rule);
+    padding: 14px 0;
+    text-align: left;
+    font-family: inherit;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .group-row:first-of-type { border-top: 1px solid var(--ink); }
+  .group-row:last-of-type { border-bottom: 1px solid var(--ink); }
+  .group-head {
+    display: grid;
+    grid-template-columns: 34px 1fr auto;
+    gap: 14px;
+    align-items: start;
+  }
+  .group-num {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.5px;
+  }
+  .group-body { min-width: 0; padding-top: 2px; }
+  .group-title {
+    margin: 0 0 3px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.2px;
+  }
+  .group-blurb {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--grey);
+  }
+  .group-chev {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: var(--mid);
+    padding-top: 8px;
+  }
+  .group-row.is-open .group-chev::after { content: "Hide"; }
+  .group-row:not(.is-open) .group-chev::after { content: "Show"; }
+  .group-detail {
+    display: none;
+    margin: 10px 0 2px 44px;
+    padding: 10px 12px;
+    background: var(--block);
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+  .group-row.is-open .group-detail { display: block; }
+  .comp-chip {
+    display: inline-block;
+    margin: 2px 6px 2px 0;
+    padding: 2px 7px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10.5px;
+    letter-spacing: -0.3px;
+    color: var(--ink);
+  }
+  .comp-chip-where {
+    margin-left: 4px;
+    font-family: inherit;
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    color: var(--mid);
+  }
+
+  .trust-meta {
+    margin: 22px 20px 24px;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+  }
+  .trust-meta p {
+    margin: 0 0 12px;
+    font-size: 11px;
+    line-height: 1.55;
+    color: var(--grey);
+  }
+  .trust-meta p strong { color: var(--ink); }
+  .trust-meta-stats {
+    display: flex;
+    gap: 16px;
+    margin: 0 0 14px;
+    padding: 0;
+    list-style: none;
+  }
+  .trust-meta-stats li {
+    flex: 1;
+    padding: 10px 0 8px;
+    border-top: 1px solid var(--ink);
+  }
+  .trust-meta-stats b {
+    display: block;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 4px;
+  }
+  .trust-meta-stats span {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+  .trust-meta-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--ink);
+    padding: 8px 0;
+    cursor: pointer;
+    border-bottom: 1px solid var(--ink);
+  }
+
+  /* Raw technical list sub-screen ------------------------------------- */
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--grey);
+    padding: 0;
+    margin: 0 20px 6px;
+    cursor: pointer;
+  }
+  .raw-lead {
+    margin: 0 20px 16px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--grey);
+  }
+  .raw-section {
+    margin: 0 20px 18px;
+  }
+  .raw-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 0 6px;
+    border-bottom: 1px solid var(--ink);
+  }
+  .raw-head h3 {
+    margin: 0;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .raw-head-n {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    color: var(--mid);
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+  }
+  .raw-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--rule);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11.5px;
+    letter-spacing: -0.3px;
+    word-break: break-all;
+  }
+  .raw-item:last-child { border-bottom: 1px solid var(--ink); }
+  .raw-src {
+    flex-shrink: 0;
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--mid);
+  }
+  .raw-note {
+    margin: 4px 20px 24px;
+    padding: 12px 14px;
+    background: var(--paper-2);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--grey);
+  }
+  .raw-note strong {
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
 </style>
 </head>
 <body>
@@ -950,6 +1249,108 @@
     <span id="toast-text"></span>
   </div>
 
+  <!-- ------------------------------------------------------------------ -->
+  <!-- SCREEN: Trust — a nutrition label for a safety device.             -->
+  <!-- Every figure comes from data/trust-panel.js, which is regenerated  -->
+  <!-- from the CycloneDX SBOMs CRACI records during each build.          -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="screen" id="screen-trust">
+    <div class="strip">
+      <span class="label">Safety &middot; What&rsquo;s inside</span>
+      <span class="page">03</span>
+    </div>
+    <h1 class="h-title">What&rsquo;s inside</h1>
+
+    <div class="seal" id="trust-seal">
+      <div class="seal-badge" aria-hidden="true">
+        <svg viewBox="0 0 22 24" width="48" height="52" fill="none">
+          <path d="M11 1 L1 5 V12 C1 18 5 22 11 23 C17 22 21 18 21 12 V5 Z" fill="currentColor"/>
+          <path d="M6.5 12 L9.8 15 L15.5 9" stroke="#EEEBE3" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
+        </svg>
+      </div>
+      <div class="seal-text">
+        <p class="seal-title" id="trust-headline">Verified clean</p>
+        <p class="seal-sub">
+          <b id="trust-runtime-n">&mdash;</b> pieces run on your glasses.
+          <span id="trust-vuln-line">Checking&hellip;</span>
+        </p>
+        <p class="seal-foot">
+          Checked <span id="trust-ago">&mdash;</span>
+          <span class="seal-foot-time" id="trust-when">&mdash;</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="section" style="margin-top: 22px;">
+      <div class="section-head">
+        <h2>What each piece does</h2>
+      </div>
+      <div class="groups" id="trust-groups" role="list">
+        <p style="margin: 14px 0; font-size: 12px; color: var(--grey);">Loading record&hellip;</p>
+      </div>
+    </div>
+
+    <div class="trust-meta">
+      <ul class="trust-meta-stats" id="trust-stats">
+        <li><b id="trust-stat-pkgs">&mdash;</b><span>Packages checked</span></li>
+        <li><b id="trust-stat-vulns">&mdash;</b><span>Known issues</span></li>
+        <li><b id="trust-stat-jobs">&mdash;</b><span>Build jobs</span></li>
+      </ul>
+      <p>
+        This record is built from a <strong>software bill of materials</strong>
+        recorded by <strong>CRACI</strong>, a Helsinki supply chain security
+        company, while the glasses software is being built. Every piece is
+        checked against known issues, and re-checked when new ones are
+        published.
+      </p>
+      <button type="button" class="trust-meta-link" id="raw-link" onclick="go('rawsbom')">
+        See the full technical list &rarr;
+      </button>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- SCREEN: Raw technical list — honest view for the one-in-a-hundred  -->
+  <!-- person who wants to see the real component names.                  -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="screen" id="screen-rawsbom">
+    <div class="strip">
+      <span class="label">Safety &middot; Technical list</span>
+      <span class="page">04</span>
+    </div>
+    <button type="button" class="back-btn" id="raw-back" onclick="go('trust')">
+      &larr; Back to what&rsquo;s inside
+    </button>
+    <h1 class="h-title">Technical list</h1>
+
+    <p class="raw-lead">
+      Every software component running in the product, grouped by where it
+      runs. This is what CRACI recorded during the build.
+    </p>
+
+    <div class="raw-section">
+      <div class="raw-head">
+        <h3>On the server</h3>
+        <span class="raw-head-n" id="raw-server-n">&mdash;</span>
+      </div>
+      <div id="raw-server"></div>
+    </div>
+
+    <div class="raw-section">
+      <div class="raw-head">
+        <h3>On the glasses</h3>
+        <span class="raw-head-n" id="raw-glasses-n">&mdash;</span>
+      </div>
+      <div id="raw-glasses"></div>
+    </div>
+
+    <p class="raw-note">
+      <strong id="raw-dev-n">&mdash;</strong> developer tools were used to
+      build this software but do not run in the product and are not shipped
+      to your glasses.
+    </p>
+  </div>
+
   <!-- Tab bar -->
   <nav class="tabbar" aria-label="Sections">
     <button class="tab is-active" data-tab="home" onclick="go('home')">
@@ -967,25 +1368,37 @@
       </svg>
       Contacts
     </button>
-    <button class="tab" data-tab="activity" disabled title="Not in this mock" style="opacity:0.35; cursor: not-allowed;">
+    <button class="tab" data-tab="trust" onclick="go('trust')">
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.6">
-        <path d="M1 12 L5 12 L7 6 L10 16 L12 10 L14 12 L19 12"/>
+        <path d="M10 1 L2 4 V10 C2 15 5 18.5 10 19 C15 18.5 18 15 18 10 V4 Z"/>
+        <path d="M6.5 10.5 L9 13 L13.5 8"/>
       </svg>
-      Activity
+      Trust
     </button>
   </nav>
 
   <div class="home-indicator"></div>
 </div>
 
+<script src="data/trust-panel.js"></script>
 <script>
-  const screens = ["home", "contacts", "edit"];
+  const screens = ["home", "contacts", "edit", "trust", "rawsbom"];
+  // Which tab in the bar should light up when we are on a given screen. Sub
+  // screens inherit from their parent so the bar never goes blank.
+  const TAB_FOR_SCREEN = {
+    home: "home",
+    contacts: "contacts",
+    edit: "contacts",
+    trust: "trust",
+    rawsbom: "trust",
+  };
   function go(name) {
     screens.forEach(s => {
       document.getElementById("screen-" + s).classList.toggle("on", s === name);
     });
+    const activeTab = TAB_FOR_SCREEN[name];
     document.querySelectorAll(".tab").forEach(t => {
-      t.classList.toggle("is-active", t.dataset.tab === name || (name === "edit" && t.dataset.tab === "contacts"));
+      t.classList.toggle("is-active", t.dataset.tab === activeTab);
     });
     const frame = document.querySelector(".frame");
     if (frame) frame.scrollTop = 0;
@@ -1096,14 +1509,106 @@
     toastTimer = setTimeout(() => $("toast").classList.remove("on"), 3500);
   }
 
+  // ---------------------------------------------------------------------
+  // Trust panel. Every number on this screen traces back to a real CRACI
+  // run via data/trust-panel.js. If that file is missing or malformed the
+  // screen says so plainly instead of showing comforting placeholders.
+  // ---------------------------------------------------------------------
+  const escape = (s) => String(s).replace(/[&<>"']/g, (c) => (
+    { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]
+  ));
+
+  function relativeTime(when) {
+    const diffMs = Date.now() - when.getTime();
+    if (diffMs < 0) return "just now";
+    const h = diffMs / 3600000;
+    if (h < 1) {
+      const m = Math.max(1, Math.round(diffMs / 60000));
+      return m + (m === 1 ? " minute ago" : " minutes ago");
+    }
+    if (h < 24) {
+      const r = Math.round(h);
+      return r + (r === 1 ? " hour ago" : " hours ago");
+    }
+    const d = Math.round(h / 24);
+    return d + (d === 1 ? " day ago" : " days ago");
+  }
+
+  function formatAbsolute(when) {
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const hh = String(when.getUTCHours()).padStart(2, "0");
+    const mm = String(when.getUTCMinutes()).padStart(2, "0");
+    return `${when.getUTCDate()} ${months[when.getUTCMonth()]} ${when.getUTCFullYear()}, ${hh}:${mm} UTC`;
+  }
+
+  function renderTrust() {
+    const d = window.TRUST_DATA;
+    const seal = $("trust-seal");
+    if (!d) {
+      $("trust-headline").textContent = "Record missing";
+      $("trust-vuln-line").textContent = "No build record found for this version.";
+      $("trust-groups").innerHTML = "";
+      seal.style.borderColor = "var(--red)";
+      $("trust-seal").querySelector(".seal-badge").style.color = "var(--red)";
+      return;
+    }
+
+    const vulns = d.run.knownVulnerabilities || 0;
+    $("trust-runtime-n").textContent = d.runtimeTotal;
+    $("trust-vuln-line").textContent = vulns === 0
+      ? "No known safety issues."
+      : vulns + (vulns === 1 ? " known issue being handled." : " known issues being handled.");
+
+    const when = new Date(d.run.verified);
+    $("trust-ago").textContent = relativeTime(when);
+    $("trust-when").textContent = formatAbsolute(when);
+
+    $("trust-groups").innerHTML = d.groups.map((g, i) => `
+      <button type="button" class="group-row" data-group="${escape(g.id)}" aria-expanded="false">
+        <div class="group-head">
+          <span class="group-num">${String(i + 1).padStart(2, "0")}</span>
+          <div class="group-body">
+            <p class="group-title">${escape(g.title)}</p>
+            <p class="group-blurb">${escape(g.blurb)}</p>
+          </div>
+          <span class="group-chev"></span>
+        </div>
+        <div class="group-detail">
+          ${g.components.map((c) => `<span class="comp-chip">${escape(c.name)}<span class="comp-chip-where">${escape(c.where)}</span></span>`).join("")}
+        </div>
+      </button>
+    `).join("");
+    $("trust-groups").querySelectorAll(".group-row").forEach((row) => {
+      row.addEventListener("click", () => {
+        const open = row.classList.toggle("is-open");
+        row.setAttribute("aria-expanded", String(open));
+      });
+    });
+
+    $("trust-stat-pkgs").textContent = d.run.packagesChecked;
+    $("trust-stat-vulns").textContent = vulns;
+    $("trust-stat-jobs").textContent = d.run.jobsSucceeded + "/" + d.run.jobsTotal;
+
+    const rawRow = (c) =>
+      `<div class="raw-item"><span>${escape(c.name)}${c.version ? " " + escape(c.version) : ""}</span><span class="raw-src">${escape(c.source)}</span></div>`;
+    $("raw-server").innerHTML = d.raw.server.map(rawRow).join("");
+    $("raw-glasses").innerHTML = d.raw.glasses.map(rawRow).join("");
+    $("raw-server-n").textContent = d.raw.server.length + (d.raw.server.length === 1 ? " item" : " items");
+    $("raw-glasses-n").textContent = d.raw.glasses.length + (d.raw.glasses.length === 1 ? " item" : " items");
+    $("raw-dev-n").textContent = d.developerToolsTotal;
+  }
+
+  renderTrust();
+
   // Deep links, used for screenshots and for jumping straight to a state:
   //   #/contacts   #/edit   #/home?confirm=fall   #/home?confirm=loc
   //   #/home?fall=off   #/home?loc=off   (combine with &)
+  //   #/trust      #/rawsbom
   (function initFromHash() {
     const h = window.location.hash || "";
     const [path, query] = h.replace(/^#\/?/, "").split("?");
     const q = new URLSearchParams(query || "");
-    if (["home", "contacts", "edit"].includes(path)) go(path);
+    if (screens.includes(path)) go(path);
     if (q.get("fall") === "off") state.fall = false;
     if (q.get("loc") === "off") state.loc = false;
     render();
