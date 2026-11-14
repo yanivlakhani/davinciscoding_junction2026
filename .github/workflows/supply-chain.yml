@@ -1,0 +1,163 @@
+name: Supply chain evidence
+
+# Records a build-time SBOM of everything this project actually pulls in,
+# using CRACI runners (https://docs.craci.com/guides/runner-workflows/).
+#
+# Deliberately isolated from deploy-modal.yml:
+#   - never runs on main, so it cannot touch the Modal deploy
+#   - no pull_request trigger, so it cannot put a failing check on anyone's PR
+#   - permissions are read-only and no secrets are used
+#   - timeout-minutes caps the wait if the CRACI App is not installed yet,
+#     instead of leaving jobs queued for GitHub's 24 hour maximum
+#
+# Requires the CRACI GitHub App on this repository. Settings -> Builds in
+# CRACI, then install the App and grant it access to this repo.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [craci]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supply-chain-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # --------------------------------------------------------------------
+  # The three supply chains that make up the product. Each job installs
+  # dependencies for real, so CRACI's proxy records what is actually
+  # fetched rather than what a lockfile claims.
+  #
+  # These jobs omit the `network` block on purpose: every preset is on and
+  # unmatched traffic is still allowed, so the recording cannot be the
+  # reason a build fails. The strict policy is exercised separately below.
+  # --------------------------------------------------------------------
+
+  backend:
+    name: Backend (PyPI)
+    runs-on: craci
+    timeout-minutes: 20
+    steps:
+      - uses: cracicorp/setup@v1
+        with:
+          size: "4"
+      - uses: actions/checkout@v4
+
+      # The server's runtime dependencies are arguments to uv_pip_install()
+      # inside fall_server.py. There is no requirements.txt and no lockfile,
+      # so a scanner that reads manifests finds nothing at all here. Read
+      # them out of the source so the install is the real one.
+      - name: Resolve dependencies declared inside fall_server.py
+        run: |
+          python3 - <<'PY' | tee requirements.recorded.txt
+          import ast, pathlib
+          src = pathlib.Path("backend/fall_server.py").read_text()
+          for node in ast.walk(ast.parse(src)):
+              if (isinstance(node, ast.Call)
+                      and isinstance(node.func, ast.Attribute)
+                      and node.func.attr in ("uv_pip_install", "pip_install")):
+                  for arg in node.args:
+                      if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                          print(arg.value)
+          PY
+          test -s requirements.recorded.txt
+
+      - name: Install them, so the fetches are recorded
+        run: python3 -m pip install --upgrade --root-user-action=ignore -r requirements.recorded.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-dependencies
+          path: requirements.recorded.txt
+
+  glasses-ui:
+    name: Glasses UI (npm)
+    runs-on: craci
+    timeout-minutes: 20
+    steps:
+      - uses: cracicorp/setup@v1
+        with:
+          size: "4"
+      - uses: actions/checkout@v4
+        with:
+          ref: glasses-ui
+      - name: Install and build the right-lens UI
+        run: |
+          npm ci
+          npm run build
+
+  mobile-app:
+    name: Companion app (npm)
+    runs-on: craci
+    timeout-minutes: 20
+    steps:
+      - uses: cracicorp/setup@v1
+        with:
+          size: "4"
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-app
+      - name: Install companion app tooling
+        run: npm ci
+
+  # --------------------------------------------------------------------
+  # The finding.
+  #
+  # mobile-app depends on puppeteer, whose postinstall hook downloads a
+  # Chrome binary from storage.googleapis.com. That binary is not a package
+  # in package-lock.json, so a lockfile-based SBOM never mentions it: it
+  # reports "puppeteer" and stops there.
+  #
+  # Under a policy that allows only npm and GitHub, that download has no
+  # matching rule and the job fails closed. The run below is expected to
+  # fail, and the failure is the evidence. continue-on-error keeps it from
+  # marking the whole workflow red.
+  #
+  # The reviewed-policy job next to it allows the host explicitly, which is
+  # what accepting a build-time dependency should look like: a named host
+  # in version control rather than an unnoticed fetch.
+  # --------------------------------------------------------------------
+
+  undeclared-fetch-blocked:
+    name: Strict policy (expected to block Chrome download)
+    runs-on: craci
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: cracicorp/setup@v1
+        with:
+          network: |
+            default: deny
+            presets: [npm, github]
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-app
+      - name: Install with npm and GitHub as the only allowed sources
+        run: npm ci
+
+  undeclared-fetch-reviewed:
+    name: Reviewed policy (Chrome download named explicitly)
+    runs-on: craci
+    timeout-minutes: 20
+    steps:
+      - uses: cracicorp/setup@v1
+        with:
+          network: |
+            default: deny
+            presets: [npm, github]
+            connections:
+              # Chrome for Testing, pulled by puppeteer's postinstall hook.
+              # Reviewed and accepted: it is a test-only dependency and does
+              # not ship in the product.
+              - tls:
+                  serverNamePatterns: [storage.googleapis.com]
+                  ports: [443]
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-app
+      - name: Install with the download allowed
+        run: npm ci
