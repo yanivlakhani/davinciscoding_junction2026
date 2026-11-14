@@ -218,7 +218,8 @@
   .status-disc svg { width: 28px; height: 30px; }
   .status-disc.on  { background: var(--green); }
   .status-disc.off { background: var(--red); }
-  .status-disc.off svg path:last-child { stroke: var(--red); }
+  .status-disc.on  .i-off { display: none; }
+  .status-disc.off .i-on  { display: none; }
 
   .status-foot {
     margin-top: 18px;
@@ -262,8 +263,40 @@
     transition: all 0.18s cubic-bezier(.3,.7,.3,1);
     right: 3px;
   }
+  .switch { flex-shrink: 0; display: block; }
   .switch.is-off { background: var(--block); }
   .switch.is-off::after { right: auto; left: 3px; background: var(--red); }
+
+  /* Second control, attached under the status card: location sharing */
+  .control {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    width: calc(100% - 40px);
+    margin: 0 20px;
+    padding: 15px 20px;
+    border: 1.5px solid var(--ink);
+    border-top: none;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .control-text { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .control-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+  .control-val {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.1px;
+  }
 
   /* -------------------------------------------------------------------- */
   /* Spec list — the "manual" feel: capitalised keys, tabular numbers     */
@@ -360,34 +393,6 @@
     font-family: inherit;
   }
   .contact.slim { padding: 11px 0; align-items: center; }
-
-  /* Priority number in a square chip, matches the "stage" chips on the deck */
-  .rank {
-    flex-shrink: 0;
-    width: 24px; height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--ink);
-    color: var(--paper);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: -0.3px;
-    font-variant-numeric: tabular-nums;
-    margin-right: 14px;
-    margin-top: 2px;
-  }
-  .contact.slim .rank { margin-top: 0; }
-  .rank-plus {
-    background: none;
-    color: var(--ink);
-    border: 1.5px solid var(--ink);
-    font-size: 18px;
-    line-height: 1;
-    font-weight: 400;
-  }
-  .add-contact { color: var(--ink); }
-  .add-contact .contact-name { font-weight: 700; }
   .contact-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
   .contact-name {
     font-size: 16px;
@@ -480,6 +485,7 @@
     margin: 10px 20px 0;
   }
   .field {
+    display: block;
     padding: 16px 0 14px;
     border-bottom: 1px solid var(--rule);
   }
@@ -672,6 +678,23 @@
     gap: 10px;
   }
   .toast.on { opacity: 1; transform: translateY(0); }
+  .toast .tag.ok { background: var(--green); }
+  .text-btn {
+    display: block;
+    width: calc(100% - 40px);
+    margin: 22px 20px 0;
+    padding: 0;
+    text-align: left;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--red);
+    cursor: pointer;
+  }
   .toast .tag {
     padding: 2px 6px;
     background: var(--red);
@@ -726,37 +749,47 @@
       <div class="status-top">
         <div class="status-text">
           <p class="status-title" id="st-title">Fall detection on</p>
-          <p class="status-sub" id="st-sub">Elena will be called if the glasses detect a fall.</p>
+          <p class="status-sub" id="st-sub">If you fall and don&rsquo;t say you&rsquo;re okay, your contacts are alerted.</p>
         </div>
         <div class="status-disc on" id="st-disc" aria-hidden="true">
           <svg width="30" height="32" viewBox="0 0 22 24" fill="none">
             <path d="M11 1 L1 5 V12 C1 18 5 22 11 23 C17 22 21 18 21 12 V5 Z" fill="currentColor"/>
-            <path d="M6.5 12 L9.8 15 L15.5 9" stroke="#00933C" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
+            <path class="i-on" d="M6.5 12 L9.8 15 L15.5 9" stroke="#00933C" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
+            <path class="i-off" d="M7.5 8.5 L14.5 15.5 M14.5 8.5 L7.5 15.5" stroke="#EE352E" stroke-width="2.2" stroke-linecap="square" fill="none"/>
           </svg>
         </div>
       </div>
       <div class="status-foot">
-        <button type="button" class="big-toggle" id="sw" aria-label="Fall detection" aria-pressed="true" onclick="askOff()">
-          <span class="big-toggle-hint" id="sw-hint">Tap to turn off</span>
-          <span class="switch" aria-hidden="true"></span>
+        <button type="button" class="big-toggle" id="fall-btn" aria-label="Fall detection" aria-pressed="true" onclick="ask('fall')">
+          <span class="big-toggle-hint" id="fall-hint">Tap to turn off</span>
+          <span class="switch" id="fall-sw" aria-hidden="true"></span>
         </button>
       </div>
     </div>
 
+    <button type="button" class="control" id="loc-btn" aria-label="Location sharing" aria-pressed="true" onclick="ask('loc')">
+      <span class="control-text">
+        <span class="control-label">Location sharing</span>
+        <span class="control-val" id="loc-val">On · sent with a fall alert</span>
+      </span>
+      <span class="switch" id="loc-sw" aria-hidden="true"></span>
+    </button>
+
+    <!-- Same four things the native app reports: glasses link, sensor
+         stream, fall camera, and the analysis server. -->
     <div class="specs">
       <div class="spec"><span class="spec-key">Glasses</span><span class="spec-val"><span class="dot"></span>Connected</span></div>
-      <div class="spec"><span class="spec-key">Glasses battery</span><span class="spec-val">82 %</span></div>
-      <div class="spec"><span class="spec-key">Last self-check</span><span class="spec-val">2 min ago</span></div>
-      <div class="spec"><span class="spec-key">Sensitivity</span><span class="spec-val">Standard</span></div>
+      <div class="spec"><span class="spec-key">Sensor data</span><span class="spec-val" id="sp-sensor"><span class="dot"></span>Receiving</span></div>
+      <div class="spec"><span class="spec-key">Camera</span><span class="spec-val" id="sp-camera">Standby</span></div>
+      <div class="spec"><span class="spec-key">Server</span><span class="spec-val"><span class="dot"></span>Online</span></div>
     </div>
 
     <div class="section">
       <div class="section-head">
         <h2>Emergency contacts</h2>
-        <span class="section-head-meta">3 · in order</span>
+        <span class="section-head-meta">3 people</span>
       </div>
       <button class="contact slim" onclick="go('contacts')">
-        <span class="rank">1</span>
         <div class="contact-main">
           <span class="contact-name">Elena Lakhani</span>
           <span class="contact-rel">Mother</span>
@@ -764,7 +797,6 @@
         <span class="contact-chev">›</span>
       </button>
       <button class="contact slim" onclick="go('contacts')">
-        <span class="rank">2</span>
         <div class="contact-main">
           <span class="contact-name">Marco Rossi</span>
           <span class="contact-rel">Flatmate</span>
@@ -772,10 +804,9 @@
         <span class="contact-chev">›</span>
       </button>
       <button class="contact slim" onclick="go('contacts')">
-        <span class="rank">3</span>
         <div class="contact-main">
-          <span class="contact-name">Dr. Henrik Aalto</span>
-          <span class="contact-rel">GP</span>
+          <span class="contact-name">Sofia Lakhani</span>
+          <span class="contact-rel">Sister</span>
         </div>
         <span class="contact-chev">›</span>
       </button>
@@ -790,7 +821,7 @@
       <button class="back" onclick="go('home')">Home</button>
       <span class="page">02</span>
     </div>
-    <h1 class="h-title">Who gets called</h1>
+    <h1 class="h-title">Who gets alerted</h1>
 
     <div class="section" style="margin-top: 4px;">
       <div class="section-head">
@@ -798,16 +829,14 @@
         <button class="action" onclick="go('edit')">+ Add</button>
       </div>
       <button class="contact" onclick="go('edit')">
-        <span class="rank">1</span>
         <div class="contact-main">
-          <span class="contact-name">Elena Lakhani<span class="primary-tag">Primary</span></span>
+          <span class="contact-name">Elena Lakhani</span>
           <span class="contact-rel">Mother</span>
           <span class="contact-info">+39 342 149 6978<br/>elena.lakhani@proton.me</span>
         </div>
         <span class="contact-chev">›</span>
       </button>
       <button class="contact" onclick="go('edit')">
-        <span class="rank">2</span>
         <div class="contact-main">
           <span class="contact-name">Marco Rossi</span>
           <span class="contact-rel">Flatmate</span>
@@ -816,28 +845,26 @@
         <span class="contact-chev">›</span>
       </button>
       <button class="contact" onclick="go('edit')">
-        <span class="rank">3</span>
         <div class="contact-main">
-          <span class="contact-name">Dr. Henrik Aalto</span>
-          <span class="contact-rel">GP</span>
-          <span class="contact-info">+358 9 471 72100<br/>reception@mehilainen.fi</span>
+          <span class="contact-name">Sofia Lakhani</span>
+          <span class="contact-rel">Sister</span>
+          <span class="contact-info">+358 40 715 2264<br/>sofia.lakhani@aalto.fi</span>
         </div>
         <span class="contact-chev">›</span>
       </button>
 
-      <button class="contact add-contact" onclick="go('edit')">
-        <span class="rank rank-plus">+</span>
+      <button class="contact slim" onclick="go('edit')">
         <div class="contact-main">
           <span class="contact-name">Add contact</span>
           <span class="contact-rel">Up to 5 people</span>
         </div>
-        <span class="contact-chev">›</span>
+        <span class="contact-chev">+</span>
       </button>
     </div>
 
     <p class="form-note" style="margin-top:22px;">
-      Glasses call contact 1 first. If they don&rsquo;t pick up within 30 seconds,
-      the glasses move to 2, then 3.
+      Everyone on this list gets the alert at the same time. It links to a photo
+      from your glasses with faces blurred, and to a map if location sharing is on.
     </p>
   </div>
 
@@ -876,10 +903,6 @@
         <span class="field-label">Email</span>
         <input class="field-input" type="email" value="elena.lakhani@proton.me" />
       </label>
-      <div class="field field-row">
-        <span class="field-label" style="margin:0;">Primary contact</span>
-        <button type="button" class="switch" aria-pressed="true" aria-label="Primary contact"></button>
-      </div>
     </div>
 
     <div class="form-actions">
@@ -888,15 +911,17 @@
     </div>
 
     <p class="form-note">
-      Elena will get a text with your location and a short recording if the glasses
-      escalate an alert. She can call back in-app.
+      If you fall and don&rsquo;t say you&rsquo;re okay, Elena gets an alert with a photo
+      from your glasses (faces blurred) and a map link if location sharing is on.
     </p>
+
+    <button type="button" class="text-btn" onclick="go('contacts')">Remove contact</button>
   </div>
 
   <!-- ------------------------------------------------------------------ -->
   <!-- Confirm-turn-off sheet                                             -->
   <!-- ------------------------------------------------------------------ -->
-  <div class="scrim" id="scrim" onclick="hideOff()"></div>
+  <div class="scrim" id="scrim" onclick="closeSheet()"></div>
   <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
     <div class="sheet-row">
       <div class="sheet-triangle">
@@ -907,26 +932,22 @@
       </div>
       <span class="sheet-strip">Warning · Action required</span>
     </div>
-    <h2 class="sheet-title" id="sheet-title">Turn off fall detection?</h2>
-    <p class="sheet-body">
-      Your glasses will stop watching for falls. If something happens, nobody
-      will be called automatically.
-    </p>
+    <!-- Title, body and list are filled in by openSheet() for whichever
+         setting is being turned off (fall detection or location sharing). -->
+    <h2 class="sheet-title" id="sheet-title"></h2>
+    <p class="sheet-body" id="sheet-body"></p>
     <hr class="sheet-divider"/>
-    <ul class="sheet-list">
-      <li><strong>Elena Lakhani</strong> will get an email letting her know fall detection is off.</li>
-      <li>You can turn it back on from the home screen at any time.</li>
-    </ul>
+    <ul class="sheet-list" id="sheet-list"></ul>
     <div class="sheet-actions">
-      <button class="btn" onclick="hideOff()">Keep it on</button>
-      <button class="btn danger" onclick="doOff()">Turn off</button>
+      <button class="btn" id="sheet-keep" onclick="closeSheet()">Keep it on</button>
+      <button class="btn danger" id="sheet-confirm" onclick="confirmOff()">Turn off</button>
     </div>
   </div>
 
-  <!-- Toast after turn-off -->
-  <div class="toast" id="toast">
-    <span class="tag">Off</span>
-    <span>Fall detection off. Email sent to Elena.</span>
+  <!-- Toast after a setting changes -->
+  <div class="toast" id="toast" role="status">
+    <span class="tag" id="toast-tag">Off</span>
+    <span id="toast-text"></span>
   </div>
 
   <!-- Tab bar -->
@@ -971,48 +992,124 @@
     document.querySelectorAll(".screen").forEach(s => s.scrollTop = 0);
   }
 
-  function askOff() {
-    const sw = document.getElementById("sw");
-    if (sw.classList.contains("is-off")) {
-      // turning back on
-      sw.classList.remove("is-off");
-      sw.setAttribute("aria-pressed", "true");
-      setOn();
-      return;
-    }
-    document.getElementById("scrim").classList.add("on");
-  }
-  function hideOff() {
-    document.getElementById("scrim").classList.remove("on");
-  }
-  function doOff() {
-    hideOff();
-    const sw = document.getElementById("sw");
-    sw.classList.add("is-off");
-    sw.setAttribute("aria-pressed", "false");
-    document.getElementById("st-title").textContent = "Fall detection off";
-    document.getElementById("st-sub").textContent = "Glasses won't call anyone. Turn back on when you're done.";
-    const d = document.getElementById("st-disc");
-    d.classList.remove("on"); d.classList.add("off");
-    const t = document.getElementById("toast");
-    t.classList.add("on");
-    setTimeout(() => t.classList.remove("on"), 3500);
-  }
-  function setOn() {
-    document.getElementById("st-title").textContent = "Fall detection on";
-    document.getElementById("st-sub").textContent = "Elena will be called if the glasses detect a fall.";
-    const d = document.getElementById("st-disc");
-    d.classList.remove("off"); d.classList.add("on");
+  // ---------------------------------------------------------------------
+  // Settings. Two things the wearer controls: fall detection and location
+  // sharing. Turning either one OFF needs a confirmation and tells the
+  // emergency contacts; turning it back ON is instant.
+  // The whole home screen is drawn from this one object by render(), so
+  // the slider, title, icon and status rows can never disagree.
+  // ---------------------------------------------------------------------
+  const state = { fall: true, loc: true };
+  let pending = null;      // which setting the open sheet is about
+  let toastTimer = null;
+
+  const COPY = {
+    fall: {
+      title: "Turn off fall detection?",
+      body: "The app will stop watching for falls. If something happens, nobody is alerted automatically.",
+      bullets: [
+        "<strong>Elena, Marco and Sofia</strong> will be told that fall detection is off.",
+        "You can turn it back on from the home screen at any time.",
+      ],
+      toastOff: "Fall detection off. Your contacts were told.",
+      toastOn: "Fall detection on.",
+    },
+    loc: {
+      title: "Turn off location sharing?",
+      body: "Your contacts are still alerted if you fall, but the alert won\u2019t show where you are.",
+      bullets: [
+        "<strong>Elena, Marco and Sofia</strong> will be told that location sharing is off.",
+        "You can turn it back on from the home screen at any time.",
+      ],
+      toastOff: "Location sharing off. Your contacts were told.",
+      toastOn: "Location sharing on.",
+    },
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  function render() {
+    const { fall, loc } = state;
+
+    $("st-title").textContent = fall ? "Fall detection on" : "Fall detection off";
+    $("st-sub").textContent = fall
+      ? "If you fall and don\u2019t say you\u2019re okay, your contacts are alerted."
+      : "Nobody is alerted if you fall. Turn it back on when you can.";
+    $("st-disc").className = "status-disc " + (fall ? "on" : "off");
+    $("fall-sw").classList.toggle("is-off", !fall);
+    $("fall-btn").setAttribute("aria-pressed", String(fall));
+    $("fall-hint").textContent = fall ? "Tap to turn off" : "Tap to turn on";
+
+    $("loc-sw").classList.toggle("is-off", !loc);
+    $("loc-btn").setAttribute("aria-pressed", String(loc));
+    $("loc-val").textContent = loc
+      ? "On \u00b7 sent with a fall alert"
+      : "Off \u00b7 not sent with alerts";
+
+    // With detection off the app stops reading the sensors and the camera.
+    $("sp-sensor").innerHTML = fall
+      ? '<span class="dot"></span>Receiving'
+      : '<span class="dot off"></span>Paused';
+    $("sp-camera").textContent = fall ? "Standby" : "Off";
   }
 
-  // Deep-link for screenshotting: #/contacts, #/edit, #/home?confirm=1
+  function ask(kind) {
+    if (!state[kind]) {          // turning back on needs no confirmation
+      state[kind] = true;
+      render();
+      showToast(true, COPY[kind].toastOn);
+      return;
+    }
+    openSheet(kind);
+  }
+
+  function openSheet(kind) {
+    pending = kind;
+    const c = COPY[kind];
+    $("sheet-title").textContent = c.title;
+    $("sheet-body").textContent = c.body;
+    $("sheet-list").innerHTML = c.bullets.map((b) => "<li>" + b + "</li>").join("");
+    $("scrim").classList.add("on");
+  }
+
+  function closeSheet() {
+    $("scrim").classList.remove("on");
+    pending = null;
+  }
+
+  function confirmOff() {
+    const kind = pending;
+    if (!kind) return;
+    closeSheet();
+    state[kind] = false;
+    render();
+    showToast(false, COPY[kind].toastOff);
+  }
+
+  function showToast(isOn, text) {
+    const tag = $("toast-tag");
+    tag.textContent = isOn ? "On" : "Off";
+    tag.classList.toggle("ok", isOn);
+    $("toast-text").textContent = text;
+    $("toast").classList.add("on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => $("toast").classList.remove("on"), 3500);
+  }
+
+  // Deep links, used for screenshots and for jumping straight to a state:
+  //   #/contacts   #/edit   #/home?confirm=fall   #/home?confirm=loc
+  //   #/home?fall=off   #/home?loc=off   (combine with &)
   (function initFromHash() {
     const h = window.location.hash || "";
     const [path, query] = h.replace(/^#\/?/, "").split("?");
+    const q = new URLSearchParams(query || "");
     if (["home", "contacts", "edit"].includes(path)) go(path);
-    if ((query || "").includes("confirm=1")) {
-      document.getElementById("scrim").classList.add("on");
-    }
+    if (q.get("fall") === "off") state.fall = false;
+    if (q.get("loc") === "off") state.loc = false;
+    render();
+    const confirm = q.get("confirm");
+    if (confirm === "loc") openSheet("loc");
+    else if (confirm) openSheet("fall");
   })();
 </script>
 </body>

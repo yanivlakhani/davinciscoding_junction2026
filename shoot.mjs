@@ -1,4 +1,6 @@
-// Render each app state in a real iPhone-sized viewport and write a PNG.
+// Screenshots + click-through checks for the mobile mock.
+//   node shoot.mjs
+// Writes PNGs to shots/ and exits non-zero if any behaviour check fails.
 import puppeteer from "puppeteer";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -9,25 +11,169 @@ const shotsDir = join(here, "shots");
 mkdirSync(shotsDir, { recursive: true });
 
 const url = (hash = "") => `file://${join(here, "index.html")}${hash}`;
+const VIEWPORT = { width: 390, height: 844, deviceScaleFactor: 2 };
+const RED = "rgb(238, 53, 46)";
+const GREEN = "rgb(0, 147, 60)";
+const settle = () => new Promise((r) => setTimeout(r, 400));
 
 const shots = [
-  ["01-home",     ""],
-  ["02-contacts", "#/contacts"],
-  ["03-edit",     "#/edit"],
-  ["04-confirm",  "#/home?confirm=1"],
+  ["01-home", ""],
+  ["02-home-fall-off", "#/home?fall=off"],
+  ["03-home-location-off", "#/home?loc=off"],
+  ["04-confirm-fall", "#/home?confirm=fall"],
+  ["05-confirm-location", "#/home?confirm=loc"],
+  ["06-contacts", "#/contacts"],
+  ["07-edit", "#/edit"],
 ];
+
+let failures = 0;
+function check(label, actual, expected) {
+  const ok = actual === expected;
+  if (!ok) failures += 1;
+  console.log(`${ok ? "PASS" : "FAIL"}  ${label}${ok ? "" : `\n        expected: ${expected}\n        actual:   ${actual}`}`);
+}
+
+// Everything the wearer can see about one setting, read from the live page.
+const read = (page) =>
+  page.evaluate(() => {
+    const knob = (id) => {
+      const el = document.getElementById(id);
+      const s = getComputedStyle(el, "::after");
+      return { off: el.classList.contains("is-off"), color: s.backgroundColor, onLeft: s.left === "3px" };
+    };
+    const text = (id) => document.getElementById(id).textContent.trim();
+    return {
+      fallKnob: knob("fall-sw"),
+      locKnob: knob("loc-sw"),
+      title: text("st-title"),
+      hint: text("fall-hint"),
+      disc: document.getElementById("st-disc").className,
+      locVal: text("loc-val"),
+      sensor: text("sp-sensor"),
+      camera: text("sp-camera"),
+      fallPressed: document.getElementById("fall-btn").getAttribute("aria-pressed"),
+      locPressed: document.getElementById("loc-btn").getAttribute("aria-pressed"),
+      sheetOpen: document.getElementById("scrim").classList.contains("on"),
+      sheetTitle: text("sheet-title"),
+      toastOn: document.getElementById("toast").classList.contains("on"),
+      toast: text("toast-tag") + " | " + text("toast-text"),
+    };
+  });
 
 const browser = await puppeteer.launch({ headless: "new" });
 try {
+  // ---- 1. Screenshots of every state -------------------------------------
   for (const [name, hash] of shots) {
     const page = await browser.newPage();
-    await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
+    await page.setViewport(VIEWPORT);
     await page.goto(url(hash), { waitUntil: "networkidle0" });
-    await new Promise((r) => setTimeout(r, 350));
-    await page.screenshot({ path: join(shotsDir, `${name}.png`), fullPage: false });
+    await settle();
+    await page.screenshot({ path: join(shotsDir, `${name}.png`) });
     await page.close();
     console.log(`wrote ${name}.png`);
   }
+
+  // ---- 2. Click-through checks -------------------------------------------
+  const page = await browser.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewport(VIEWPORT);
+  await page.goto(url(), { waitUntil: "networkidle0" });
+  await settle();
+
+  let s = await read(page);
+  console.log("\nStarting state");
+  check("fall slider is on (green, right)", `${s.fallKnob.off}/${s.fallKnob.color}`, `false/${GREEN}`);
+  check("location slider is on (green, right)", `${s.locKnob.off}/${s.locKnob.color}`, `false/${GREEN}`);
+  check("title", s.title, "Fall detection on");
+
+  console.log("\nFall detection: tap, then 'Keep it on'");
+  await page.click("#fall-btn"); await settle();
+  s = await read(page);
+  check("confirmation opens", s.sheetOpen, true);
+  check("sheet asks about fall detection", s.sheetTitle, "Turn off fall detection?");
+  await page.click("#sheet-keep"); await settle();
+  s = await read(page);
+  check("sheet closes", s.sheetOpen, false);
+  check("still on", `${s.title}/${s.fallKnob.off}`, "Fall detection on/false");
+
+  console.log("\nFall detection: tap, then 'Turn off'  (the reported bug)");
+  await page.click("#fall-btn"); await settle();
+  await page.click("#sheet-confirm"); await settle();
+  s = await read(page);
+  check("title says off", s.title, "Fall detection off");
+  check("slider knob is red", s.fallKnob.color, RED);
+  check("slider knob moved to the left", s.fallKnob.onLeft, true);
+  check("icon disc is red", s.disc, "status-disc off");
+  check("hint flips", s.hint, "Tap to turn on");
+  check("aria-pressed", s.fallPressed, "false");
+  check("sensor row", s.sensor, "Paused");
+  check("camera row", s.camera, "Off");
+  check("toast", `${s.toastOn} ${s.toast}`, "true Off | Fall detection off. Your contacts were told.");
+  check("location untouched", s.locKnob.off, false);
+  await page.screenshot({ path: join(shotsDir, "08-after-turning-fall-off.png") });
+
+  console.log("\nFall detection: tap again turns it back on without asking");
+  await page.click("#fall-btn"); await settle();
+  s = await read(page);
+  check("no confirmation", s.sheetOpen, false);
+  check("title says on", s.title, "Fall detection on");
+  check("slider knob is green", s.fallKnob.color, GREEN);
+  check("slider knob back on the right", s.fallKnob.onLeft, false);
+  check("icon disc is green", s.disc, "status-disc on");
+  check("sensor row", s.sensor, "Receiving");
+  check("toast", s.toast, "On | Fall detection on.");
+
+  console.log("\nLocation sharing: tap, then 'Keep it on'");
+  await page.click("#loc-btn"); await settle();
+  s = await read(page);
+  check("confirmation opens", s.sheetOpen, true);
+  check("sheet asks about location", s.sheetTitle, "Turn off location sharing?");
+  await page.click("#sheet-keep"); await settle();
+  s = await read(page);
+  check("still on", `${s.sheetOpen}/${s.locKnob.off}`, "false/false");
+
+  console.log("\nLocation sharing: tap, then 'Turn off'");
+  await page.click("#loc-btn"); await settle();
+  await page.click("#sheet-confirm"); await settle();
+  s = await read(page);
+  check("slider knob is red", s.locKnob.color, RED);
+  check("slider knob moved to the left", s.locKnob.onLeft, true);
+  check("row text", s.locVal, "Off \u00b7 not sent with alerts");
+  check("aria-pressed", s.locPressed, "false");
+  check("toast", s.toast, "Off | Location sharing off. Your contacts were told.");
+  check("fall detection untouched", `${s.title}/${s.fallKnob.off}`, "Fall detection on/false");
+  await page.screenshot({ path: join(shotsDir, "09-after-turning-location-off.png") });
+
+  console.log("\nLocation sharing: tap again turns it back on without asking");
+  await page.click("#loc-btn"); await settle();
+  s = await read(page);
+  check("no confirmation", s.sheetOpen, false);
+  check("slider knob is green", s.locKnob.color, GREEN);
+  check("row text", s.locVal, "On \u00b7 sent with a fall alert");
+
+  console.log("\nNavigation");
+  await page.click('.tab[data-tab="contacts"]'); await settle();
+  check("contacts tab opens contacts", await page.$eval("#screen-contacts", (e) => e.classList.contains("on")), true);
+  await page.click("#screen-contacts .contact"); await settle();
+  check("contact row opens edit form", await page.$eval("#screen-edit", (e) => e.classList.contains("on")), true);
+  await page.click("#screen-edit .back"); await settle();
+  check("back returns to contacts", await page.$eval("#screen-contacts", (e) => e.classList.contains("on")), true);
+  await page.click('.tab[data-tab="home"]'); await settle();
+  check("home tab returns home", await page.$eval("#screen-home", (e) => e.classList.contains("on")), true);
+
+  console.log("\nLayout");
+  for (const id of ["screen-home", "screen-contacts", "screen-edit"]) {
+    await page.evaluate((name) => go(name), id.replace("screen-", ""));
+    const overflow = await page.$eval("#" + id, (e) => e.scrollWidth - e.clientWidth);
+    check(`${id} has no sideways overflow`, overflow, 0);
+  }
+  check("no JavaScript errors", errors.join("; "), "");
+  await page.close();
 } finally {
   await browser.close();
 }
+
+console.log(failures ? `\n${failures} check(s) FAILED` : "\nAll checks passed");
+process.exit(failures ? 1 : 0);
