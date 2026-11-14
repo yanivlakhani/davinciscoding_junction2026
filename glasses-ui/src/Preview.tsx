@@ -12,9 +12,43 @@ function readInitialState(): LensState {
   return q && LENS_STATES.some((s) => s.id === q) ? q : 'idle';
 }
 
+function isGlassesMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  return new URLSearchParams(window.location.search).get('mode') === 'glasses';
+}
+
 export function Preview() {
   const [state, setState] = useState<LensState>(readInitialState);
   const current = LENS_STATES.find((s) => s.id === state)!;
+
+  // Glasses mode: strip the dev chrome and let the Lens fill the viewport,
+  // so the Meta Ray-Ban Display Simulator Chrome extension can overlay its
+  // 600×600 additive-light frame directly on it. Drive the demo via arrow
+  // keys (previous / next state) and `?state=` for deep links.
+  if (isGlassesMode()) {
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: '#000',
+          overflow: 'hidden',
+        }}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          const i = LENS_STATES.findIndex((s) => s.id === state);
+          if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            setState(LENS_STATES[(i + 1) % LENS_STATES.length].id);
+          } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            setState(LENS_STATES[(i - 1 + LENS_STATES.length) % LENS_STATES.length].id);
+          }
+        }}
+        ref={(el) => el?.focus()}
+      >
+        <Lens state={state} />
+      </div>
+    );
+  }
 
   return (
     <div className="preview">

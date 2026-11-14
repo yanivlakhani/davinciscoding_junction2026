@@ -76,3 +76,27 @@ The lens component is purely controlled:
 ```
 
 Where `currentState: LensState` comes from the backend state machine. There is no input handling on the glasses side yet — tap-to-cancel will use the touchpad input API from `@wearables-ui-toolkit/foundation` once hooked up.
+
+## Test on a simulated Meta Ray-Ban Display
+
+Meta ships an official Chrome extension that recreates the 600×600 additive-light display frame, D-pad input, environment backgrounds, and a "View on Glasses" QR code for loading the app onto real glasses.
+
+1. Install the [Meta Ray-Ban Display Simulator](https://chromewebstore.google.com/detail/meta-ray-ban-display-simu/jpjlmmodokemlepklkdbimceggpbjcll) from the Chrome Web Store.
+2. Run `npm run dev` (fast dev loop) or `npm run build && npm run preview` (production-fidelity).
+3. Open the app in Chrome in **glasses mode** — this hides the dev picker so the simulator only sees the Lens:
+
+   ```
+   http://127.0.0.1:5173/?mode=glasses
+   http://127.0.0.1:5173/?mode=glasses&state=escalated
+   ```
+4. Click the extension icon in the Chrome toolbar to enable the simulator.
+5. Use arrow keys (or on-screen D-pad) to step through states: ← / → cycle backwards and forwards.
+
+The simulator supports additive blending, environment backgrounds (built-in scenes, custom images, or live webcam), brightness controls, and a viewport recorder for demo clips.
+
+### Load on real glasses
+
+For on-device testing you need:
+- Developer Mode enabled in the Meta AI app (App Settings → Apps → Web Apps).
+- The app served from a publicly accessible **HTTPS** URL (localhost will not load on the glasses). Options: Vercel, Netlify, GitHub Pages, or an ngrok tunnel for ad-hoc tests.
+- The simulator's "View on Glasses" QR feature turns the current URL into a one-tap add on the paired phone.
