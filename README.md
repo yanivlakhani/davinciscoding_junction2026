@@ -1,5 +1,10 @@
 # davinciscoding_junction2026
 
+## iPhone application
+
+The native glasses application, local detector and Modal integration are in
+[`app/`](app/README.md). Setup and test instructions are included there.
+
 ## Frame selection for `/analyze`
 
 Send 1-7 JPEG frames in chronological order. The optional multipart field

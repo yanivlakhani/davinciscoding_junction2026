@@ -1,0 +1,6 @@
+// Copy to Modal.local.xcconfig and set your deployed Modal URL.
+// Xcode treats // as a comment: write https:/$()/your-host.modal.run
+MODAL_ENDPOINT_URL =
+// Current receiver uses the x-api-key header; runtime key is in Keychain.
+MODAL_AUTH_MODE = x-api-key
+// Credentials are read from the app's Keychain; never put tokens in this file.

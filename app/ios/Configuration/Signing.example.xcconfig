@@ -1,0 +1,5 @@
+// Copy to Signing.local.xcconfig; local files are ignored by Git.
+PRODUCT_BUNDLE_IDENTIFIER = org.local.fallapp.development
+DEVELOPMENT_TEAM =
+META_APP_ID = 0
+CLIENT_TOKEN =

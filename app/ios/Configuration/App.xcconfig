@@ -1,0 +1,8 @@
+#include "Modal.example.xcconfig"
+#include? "Modal.local.xcconfig"
+
+PRODUCT_BUNDLE_IDENTIFIER = org.local.fallapp.development
+META_APP_ID = 0
+CLIENT_TOKEN =
+// Local signing and Meta registration values override these portable defaults.
+#include? "Signing.local.xcconfig"

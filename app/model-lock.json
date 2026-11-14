@@ -1,0 +1,17 @@
+{
+  "baselineVersion": "assessment-baseline-v1",
+  "files": {
+    "packages/DetectionEngine/Sources/FallCore/Models.swift": {
+      "sha256": "98262b7aa6599b007266dea104351e330f4ae7663c20e26cb717dc5714db9c4a"
+    },
+    "packages/DetectionEngine/Sources/FallCore/Features.swift": {
+      "sha256": "0aaaaedc29515472807bd165f63c2160ad459b9a842995be7142b29cff51043e"
+    },
+    "packages/DetectionEngine/Sources/FallCore/FallDetector.swift": {
+      "sha256": "02f12ba29d8c2c38423e8a26cb5d9b5256df582e312a1f8386fffdd7cb03599b"
+    },
+    "packages/DetectionEngine/Sources/SelectedDetector/Resources/product-configuration.json": {
+      "sha256": "b298db14d80aa2c9eb5fae64c43a5c0ecd11fcac337d40c9b15a8ae786b514d0"
+    }
+  }
+}

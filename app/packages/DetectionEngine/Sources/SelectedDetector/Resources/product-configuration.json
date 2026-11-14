@@ -1,0 +1,21 @@
+{
+  "selectedModel": "deterministic-baseline-v1",
+  "inferenceLocation": "phone",
+  "ruleConfiguration": {
+    "candidateAngularSpeed": 6,
+    "cooldownSeconds": 5,
+    "featureWindowSeconds": 1,
+    "impactAcceleration": 20.000000000000004,
+    "inactivityAccelerationStd": 1.5,
+    "inactivityGyroscopeRMS": 0.6,
+    "maximumGapSeconds": 0.25,
+    "minimumPrehistorySeconds": 0.25,
+    "minimumVerificationSeconds": 0.8,
+    "orientationChangeDegrees": 35,
+    "postWindowSeconds": 0.6,
+    "requiredSensorCoverage": 0.85,
+    "settlingDelaySeconds": 0.2,
+    "verificationAngularSpeed": 3.5,
+    "verificationTimeoutSeconds": 2
+  }
+}
