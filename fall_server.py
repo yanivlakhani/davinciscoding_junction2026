@@ -2,7 +2,7 @@
 Fall-detection backend on Modal.
 
 The phone app triggers the glasses camera locally (Device Access Toolkit) after a detected fall,
-then sends 1-5 JPEG frames here. The server:
+then sends 1-7 JPEG frames here. The server:
   1. drops unusable frames (dark / blurred / lens covered)
   2. blurs faces before any frame leaves the server
   3. asks Claude (vision) whether the wearer is on the ground (caduta SI/NO), schema-validated JSON
@@ -160,12 +160,19 @@ def _anthropic():
     return _client
 
 
-def analyze_with_claude(jpegs: list[bytes], duration_s: float = 0.0, model: str | None = None) -> dict:
+def analyze_with_claude(
+    jpegs: list[bytes],
+    duration_s: float = 0.0,
+    model: str | None = None,
+    frame_times: list[float] | None = None,
+) -> dict:
     import base64, json
     n = len(jpegs)
+    if frame_times is not None and len(frame_times) != n:
+        raise ValueError("frame_times must contain one timestamp per frame")
     content = [{"type": "text", "text": VISION_PROMPT.format(n=n, durata=duration_s)}]
     for i, j in enumerate(jpegs):
-        t = duration_s * i / (n - 1) if n > 1 else 0.0
+        t = frame_times[i] if frame_times is not None else duration_s * i / (n - 1) if n > 1 else 0.0
         content.append({"type": "text", "text": f"t = {t:.1f} s"})
         content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                                      "data": base64.standard_b64encode(j).decode()}})
@@ -238,32 +245,41 @@ def build_web_app():
         lon: float | None = Form(None),
         event_id: str | None = Form(None),
         duration_s: float = Form(1.5),          # time span covered by the frames
+        best_n: int = Form(7),
         x_api_key: str | None = Header(None),
     ):
         check_key(x_api_key)
         t0 = time.time()
-        if not 1 <= len(frames) <= 5:
-            raise HTTPException(400, "send 1-5 frames")
+        if not 1 <= len(frames) <= 7:
+            raise HTTPException(400, "send 1-7 frames")
+        if not 1 <= best_n <= 7:
+            raise HTTPException(400, "best_n must be between 1 and 7")
 
         checked = []
-        for f in frames:
+        for index, f in enumerate(frames):
             img = _decode(await f.read())
             if img is None:
                 continue
             q = quality(img)
-            checked.append((q, img))
-        usable = sorted([c for c in checked if c[0]["usable"]], key=lambda c: -c[0]["sharpness"])[:4]
+            checked.append((index, q, img))
+        usable = sorted(
+            [c for c in checked if c[1]["usable"]], key=lambda c: -c[1]["sharpness"],
+        )[:best_n]
+        usable.sort(key=lambda c: c[0])
 
-        jpegs, n_faces = [], 0
-        for _, img in usable:
+        jpegs, frame_times, n_faces = [], [], 0
+        for index, _, img in usable:
             img, n = blur_faces(img)
             n_faces = -1 if n < 0 or n_faces < 0 else n_faces + n
             jpegs.append(to_jpeg(img))
+            frame_times.append(duration_s * index / (len(frames) - 1) if len(frames) > 1 else 0.0)
 
         vision, error = dict(FALLBACK), None
         if jpegs:
             try:
-                vision = await asyncio.to_thread(analyze_with_claude, jpegs, duration_s)
+                vision = await asyncio.to_thread(
+                    analyze_with_claude, jpegs, duration_s, frame_times=frame_times,
+                )
             except Exception as e:          # vision is optional: never block the alarm path
                 error = f"{type(e).__name__}: {e}"
         vision["usable_frames"] = len(jpegs)
@@ -273,7 +289,10 @@ def build_web_app():
             "event_id": eid, "created": time.time(), "imu_level": imu_level,
             "level": fuse(imu_level, vision), "vision": vision, "vision_error": error,
             "lat": lat, "lon": lon, "faces_blurred": n_faces,
-            "quality": [c[0] for c in checked], "status": "awaiting_answer",
+            "quality": [c[1] for c in checked], "status": "awaiting_answer",
+            "n_frames": len(frames), "best_n": best_n,
+            "selected_frame_indices": [c[0] for c in usable],
+            "selected_frame_times_s": frame_times,
             "frame_b64": base64.b64encode(jpegs[0]).decode() if jpegs else None,
             "processing_ms": int((time.time() - t0) * 1000),
         }

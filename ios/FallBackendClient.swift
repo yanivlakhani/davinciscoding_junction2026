@@ -15,8 +15,8 @@ final class FallBackendClient {
 
     init(baseURL: URL, apiKey: String) { self.baseURL = baseURL; self.apiKey = apiKey }
 
-    /// frames: JPEG dalla camera degli occhiali (1-5). imuLevel: livello di gravità dai sensori (0-3).
-    func analyze(frames: [Data], imuLevel: Int, lat: Double?, lon: Double?) async throws -> FallAnalysis {
+    /// frames: JPEG dalla camera degli occhiali (1-7). bestN: migliori frame utilizzabili (1-7).
+    func analyze(frames: [Data], imuLevel: Int, lat: Double?, lon: Double?, bestN: Int = 7) async throws -> FallAnalysis {
         var req = URLRequest(url: baseURL.appendingPathComponent("analyze"))
         req.httpMethod = "POST"
         req.timeoutInterval = 15
@@ -29,8 +29,9 @@ final class FallBackendClient {
             body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n".data(using: .utf8)!)
         }
         field("imu_level", String(imuLevel))
+        field("best_n", String(bestN))
         if let lat, let lon { field("lat", String(lat)); field("lon", String(lon)) }
-        for (i, jpg) in frames.prefix(5).enumerated() {
+        for (i, jpg) in frames.prefix(7).enumerated() {
             body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"frames\"; filename=\"f\(i).jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
             body.append(jpg)
             body.append("\r\n".data(using: .utf8)!)
