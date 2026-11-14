@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#EEEBE3" />
-<title>Safety</title>
+<meta name="theme-color" content="#E8F7F4" />
+<title>Upright · Safety</title>
 <style>
   /*
    * Design language shared with the pitch deck and the glasses UI:
@@ -13,18 +13,19 @@
    *   yellow warning). Helvetica from the system; no webfonts.
    */
   :root {
-    --paper: #EEEBE3;
-    --paper-2: #E5E1D6;
-    --ink: #141414;
-    --grey: #6F6C64;
-    --mid: #8A877F;
-    --faint: #A7A49C;
-    --rule: #CFCABD;
-    --block: #DDD8CC;
+    --paper: #F1FAF8;
+    --paper-2: #E1F3EF;
+    --ink: #123B38;
+    --grey: #58716D;
+    --mid: #819792;
+    --faint: #A7BBB6;
+    --rule: #C8DEDA;
+    --block: #D7EAE5;
     --red: #EE352E;
-    --green: #00933C;
+    --green: #0F766E;
     --blue: #0039A6;
     --yellow: #FCCC0A;
+    --aqua: #14B8A6;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
@@ -32,7 +33,7 @@
     padding: 0;
     width: 100%;
     overflow-x: hidden;
-    background: #1b1b1d;
+    background: #122624;
     color: var(--ink);
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Helvetica", Arial, sans-serif;
     font-feature-settings: "ss01", "cv11";
@@ -49,7 +50,7 @@
     width: 390px;
     height: 844px;
     margin: 28px auto;
-    background: var(--paper);
+    background: linear-gradient(155deg, #F5FCFA 0%, #E8F7F4 48%, #E0F2EF 100%);
     border: 11px solid #0a0a0a;
     border-radius: 54px;
     overflow: hidden;
@@ -676,6 +677,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    pointer-events: none;
   }
   .toast.on { opacity: 1; transform: translateY(0); }
   .toast .tag.ok { background: var(--green); }
@@ -704,6 +706,168 @@
     text-transform: uppercase;
     font-weight: 700;
   }
+  .toast {
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    padding: 13px 16px;
+    border: 1px solid rgba(15,118,110,0.12);
+    border-radius: 18px;
+    background: rgba(248,253,251,0.94);
+    color: var(--ink);
+    box-shadow: 0 12px 32px rgba(18,59,56,0.16);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    transform: translateY(18px) scale(0.98);
+    transition: opacity 0.28s ease, transform 0.36s cubic-bezier(.2,.8,.2,1);
+  }
+  .toast.on { transform: translateY(0) scale(1); }
+  .toast .tag {
+    flex-shrink: 0;
+    padding: 5px 9px;
+    border-radius: 999px;
+    letter-spacing: 0.8px;
+  }
+  .fall-preview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: calc(100% - 40px);
+    margin: 20px 20px 8px;
+    padding: 14px 16px;
+    border: 1px solid rgba(15,118,110,0.12);
+    border-radius: 18px;
+    background: rgba(255,255,255,0.55);
+    color: var(--green);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+  }
+  .fall-preview-copy { display: flex; flex-direction: column; gap: 4px; }
+  .fall-preview-copy strong { font-size: 12px; }
+  .fall-preview-copy small { color: var(--grey); font-size: 10px; }
+  .fall-preview-arrow { font-size: 22px; line-height: 1; }
+  .fall-flow-screen {
+    align-items: center;
+    padding: 76px 24px 42px;
+    text-align: center;
+  }
+  .fall-flow-back {
+    position: absolute;
+    top: 66px;
+    left: 24px;
+    padding: 8px 0;
+    border: 0;
+    background: none;
+    color: var(--grey);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .fall-flow-icon {
+    display: grid;
+    place-items: center;
+    width: 78px;
+    height: 78px;
+    margin: 30px auto 20px;
+    border-radius: 50%;
+    background: rgba(20,184,166,0.12);
+    color: var(--green);
+  }
+  .fall-flow-icon svg { width: 36px; height: 36px; }
+  .fall-flow-screen h1 {
+    margin: 0;
+    font-size: 30px;
+    line-height: 1.08;
+    letter-spacing: -0.8px;
+  }
+  .fall-flow-copy {
+    max-width: 290px;
+    margin: 12px auto 0;
+    color: var(--grey);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .fall-countdown {
+    display: grid;
+    place-items: center;
+    width: 92px;
+    height: 92px;
+    margin: 24px auto;
+    border: 1px solid rgba(20,184,166,0.3);
+    border-radius: 50%;
+    background: rgba(255,255,255,0.66);
+    color: var(--green);
+    font-size: 34px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 8px 25px rgba(15,118,110,0.08);
+  }
+  .fall-flow-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 20px; }
+  .fall-flow-actions .btn { flex: initial; min-height: 52px; border-radius: 16px; }
+  .fall-help-btn {
+    border-color: rgba(184,75,68,0.2);
+    background: rgba(255,255,255,0.55);
+    color: #A63C36;
+  }
+  .fall-alert-card {
+    width: 100%;
+    margin-top: 26px;
+    padding: 18px;
+    border: 1px solid rgba(15,118,110,0.13);
+    border-radius: 18px;
+    background: rgba(255,255,255,0.68);
+    text-align: left;
+  }
+  .fall-alert-card span { display: block; color: var(--grey); font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
+  .fall-alert-card strong { display: block; margin-top: 5px; font-size: 16px; }
+  .fall-demo-note {
+    margin: 18px 0 0;
+    color: var(--grey);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .fall-flow-screen.alert-sent {
+    background:
+      radial-gradient(ellipse at 50% 12%, rgba(20,184,166,0.2), transparent 38%),
+      linear-gradient(160deg, #102B29 0%, #163936 52%, #1B4540 100%);
+    color: #F4FBF9;
+  }
+  .alert-sent .fall-flow-back { color: #D0E6E1; }
+  .alert-sent .fall-flow-icon {
+    background: rgba(248,204,106,0.14);
+    color: #FFD47A;
+    box-shadow: 0 0 0 8px rgba(248,204,106,0.05);
+  }
+  .alert-sent .fall-flow-copy { color: #D2E4E0; }
+  .alert-sent .fall-alert-card {
+    border-color: rgba(180,225,216,0.22);
+    background: rgba(6,25,24,0.48);
+    box-shadow: 0 14px 34px rgba(0,0,0,0.16);
+  }
+  .alert-sent .fall-alert-card span { color: #B8D3CD; }
+  .alert-sent .fall-alert-card strong { color: #FFFFFF; font-size: 19px; }
+  .alert-sent .fall-demo-note {
+    padding: 11px 14px;
+    border: 1px solid rgba(255,212,122,0.3);
+    border-radius: 12px;
+    background: rgba(255,212,122,0.09);
+    color: #FFE6AF;
+  }
+  .alert-sent .fall-flow-actions .btn.ink {
+    border-color: #4ED4C1;
+    background: linear-gradient(120deg, #0E9D8F, #20BDA9);
+    color: #072B28;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.22);
+  }
+  .alert-sent .fall-flow-actions .btn:not(.ink) {
+    border-color: rgba(217,240,235,0.45);
+    background: rgba(255,255,255,0.08);
+    color: #F4FBF9;
+  }
+  .frame.alert-mode .statusbar { color: #F4FBF9; }
+  .frame.alert-mode .statusbar svg { filter: brightness(0) invert(1); }
+  .frame.alert-mode .tabbar, .frame.alert-mode .home-indicator { display: none; }
 
   /* -------------------------------------------------------------------- */
   /* Trust screen: a nutrition label for a safety device. Nothing on this */
@@ -1072,6 +1236,297 @@
     color: var(--ink);
     font-variant-numeric: tabular-nums;
   }
+
+  .screen {
+    background:
+      radial-gradient(ellipse at 100% 0%, rgba(20,184,166,0.12), transparent 42%),
+      linear-gradient(155deg, #F5FCFA 0%, #EAF8F5 52%, #E2F3EF 100%);
+  }
+  .status-disc.on { background: linear-gradient(145deg, #14B8A6, #0F766E); }
+  .switch:not(.is-off)::after { background: var(--aqua); }
+  .tab.is-active::before { background: var(--aqua); }
+  .primary-tag, .toast .tag.ok { background: var(--green); }
+  .btn.ink {
+    border-color: var(--green);
+    background: linear-gradient(120deg, #0F766E, #14B8A6);
+    color: #fff;
+  }
+  .btn, .control, .status, .seal {
+    border-radius: 14px;
+  }
+  .status, .control {
+    background-color: rgba(255,255,255,0.72);
+    box-shadow: 0 8px 24px rgba(15,118,110,0.06);
+  }
+  .auth-screen {
+    padding: 66px 25px 28px;
+    background:
+      radial-gradient(ellipse at 90% 8%, rgba(20,184,166,0.2), transparent 38%),
+      linear-gradient(155deg, #F5FCFA 0%, #E7F7F3 55%, #DDF2ED 100%);
+  }
+  .auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 20px 0 30px;
+  }
+  .auth-logo {
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    box-shadow: 0 8px 22px rgba(15,118,110,0.14);
+  }
+  .auth-wordmark {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--green);
+  }
+  .auth-title {
+    margin: 0;
+    font-size: 34px;
+    line-height: 1.03;
+    letter-spacing: -1.2px;
+  }
+  .auth-copy {
+    margin: 10px 0 23px;
+    max-width: 290px;
+    color: var(--grey);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .auth-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 4px;
+    margin-bottom: 12px;
+    border-radius: 14px;
+    background: rgba(15,118,110,0.08);
+  }
+  .auth-switch button {
+    border: 0;
+    border-radius: 11px;
+    padding: 12px;
+    background: transparent;
+    color: var(--grey);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .auth-switch button.is-active {
+    background: rgba(255,255,255,0.9);
+    color: var(--ink);
+    box-shadow: 0 2px 9px rgba(18,59,56,0.08);
+  }
+  .auth-form .field, .profile-form .field {
+    padding: 13px 15px;
+    margin: 10px 0;
+    border: 1px solid rgba(15,118,110,0.16);
+    border-radius: 13px;
+    background: rgba(255,255,255,0.68);
+  }
+  .auth-form .field-label, .profile-form .field-label { margin-bottom: 7px; }
+  .auth-form .field-input, .profile-form .field-input, .profile-form .field-select {
+    font-size: 16px;
+  }
+  .auth-form .btn, .profile-form .btn {
+    width: 100%;
+    margin-top: 14px;
+    border-radius: 14px;
+    min-height: 52px;
+  }
+  .auth-error {
+    min-height: 18px;
+    margin: 10px 0 0;
+    color: #A12B27;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .auth-note {
+    margin: 17px 0 0;
+    color: var(--grey);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .setup-step {
+    padding: 10px 24px 0;
+    color: var(--green);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .setup-intro {
+    margin: 0 24px 8px;
+    color: var(--grey);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .profile-shortcut {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(20,184,166,0.12);
+    color: var(--green);
+    cursor: pointer;
+  }
+  .profile-shortcut svg { width: 21px; height: 21px; display: block; }
+  .profile-summary {
+    margin: 4px 20px 0;
+    padding: 16px;
+    border: 1px solid rgba(15,118,110,0.14);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.58);
+  }
+  .profile-summary .spec { padding: 9px 0; }
+  .profile-summary .spec:last-child { border-bottom: 0; }
+  .logout-btn {
+    width: calc(100% - 40px);
+    margin: 22px 20px 0;
+    padding: 13px;
+    border: 1px solid var(--rule);
+    border-radius: 13px;
+    background: rgba(255,255,255,0.42);
+    color: var(--grey);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .frame.auth-mode .tabbar, .frame.auth-mode .home-indicator { display: none; }
+  @media (max-width: 500px) {
+    .frame { background: var(--paper); }
+    .auth-screen { padding-top: 54px; }
+  }
+  .screen {
+    background:
+      radial-gradient(ellipse at 92% 6%, rgba(20,184,166,0.12), transparent 34%),
+      linear-gradient(160deg, #F5FCFA 0%, #EAF8F5 56%, #E2F3EF 100%);
+  }
+  .h-title { letter-spacing: -1.1px; }
+  .strip .back, .section-head, .specs { border-color: rgba(18,59,56,0.14); }
+  .status {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 6px 20px 10px;
+    margin: 0;
+    text-align: center;
+  }
+  .status-top { justify-content: center; }
+  .status-text { flex: initial; }
+  .status-title { font-size: 15px; letter-spacing: 0.6px; text-transform: uppercase; }
+  .status-sub { min-height: 36px; margin: 7px auto 0; max-width: 270px; }
+  .status-disc, .status-foot { display: none; }
+  .safety-orb {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 204px;
+    height: 204px;
+    margin: 18px auto 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 26%, #55D8C8 0%, #19B9A8 32%, #0F766E 78%);
+    color: #fff;
+    box-shadow: 0 18px 38px rgba(15,118,110,0.24), inset 0 2px 6px rgba(255,255,255,0.38);
+    cursor: pointer;
+    transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.25s ease;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .safety-orb::before, .safety-orb::after {
+    content: "";
+    position: absolute;
+    inset: -11px;
+    border: 1px solid rgba(20,184,166,0.26);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .safety-orb::after { inset: -22px; opacity: 0.58; }
+  .safety-orb:hover { transform: scale(1.025); box-shadow: 0 22px 45px rgba(15,118,110,0.3), inset 0 2px 6px rgba(255,255,255,0.38); }
+  .safety-orb:active { transform: scale(0.97); }
+  .safety-orb:focus-visible { outline: 3px solid var(--ink); outline-offset: 7px; }
+  .safety-orb.is-off {
+    background: radial-gradient(circle at 34% 26%, #A6BDB8 0%, #738F89 38%, #496660 82%);
+    box-shadow: 0 16px 34px rgba(18,59,56,0.18), inset 0 2px 6px rgba(255,255,255,0.35);
+  }
+  .safety-orb.is-off::before, .safety-orb.is-off::after { border-color: rgba(88,113,109,0.22); }
+  .orb-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .orb-icon { width: 72px; height: 72px; filter: drop-shadow(0 2px 4px rgba(18,59,56,0.12)); }
+  .orb-action { font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; }
+  .orb-caption {
+    margin: 28px 20px 0;
+    text-align: center;
+    color: var(--grey);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .control {
+    width: calc(100% - 40px);
+    margin: 18px 20px 0;
+    padding: 16px 18px;
+    border: 1px solid rgba(15,118,110,0.12);
+    border-radius: 20px;
+    background: rgba(255,255,255,0.7);
+    box-shadow: 0 8px 24px rgba(15,118,110,0.06);
+  }
+  .switch, .switch::after { border-radius: 999px; }
+  .switch { background: rgba(15,118,110,0.18); }
+  .switch::after { top: 3px; width: 26px; height: 26px; }
+  .switch.is-off::after { background: #849B96; }
+  .specs {
+    margin: 20px 24px 0;
+    padding-top: 4px;
+    border-top: 1px solid rgba(18,59,56,0.12);
+  }
+  .spec { border-color: rgba(18,59,56,0.1); padding: 12px 2px; }
+  .spec-key { letter-spacing: 1.1px; }
+  .section { margin-top: 22px; }
+  .section-head { border-bottom-width: 1px; padding-bottom: 9px; }
+  .contact { border-color: rgba(18,59,56,0.1); }
+  .tabbar {
+    border-top-color: rgba(18,59,56,0.12);
+    background: rgba(247,252,250,0.9);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+  .tab.is-active::before { border-radius: 999px; height: 3px; }
+  .sheet {
+    border: 0;
+    border-radius: 28px 28px 0 0;
+    box-shadow: 0 -12px 44px rgba(18,59,56,0.16);
+  }
+  .btn { border-radius: 14px; }
+  .sheet-actions .btn { border-radius: 16px; }
+  .seal { border-radius: 20px; }
+  .craci-band { border-radius: 0 0 12px 12px; }
+  .craci-band--alone { border-radius: 12px; }
+  .group-num { border-radius: 9px; }
+  .group-detail, .raw-note { border-radius: 12px; }
+  .primary-tag { border-radius: 999px; }
+  .spec-val .dot { border-radius: 50%; }
+  .field-input, .field-select { border-radius: 8px; }
+  .section-head h2, .section-head .action, .strip .label { letter-spacing: 1.2px; }
+  @keyframes orb-breathe {
+    0%, 100% { box-shadow: 0 18px 38px rgba(15,118,110,0.22), inset 0 2px 6px rgba(255,255,255,0.38); }
+    50% { box-shadow: 0 22px 46px rgba(15,118,110,0.3), inset 0 2px 6px rgba(255,255,255,0.42); }
+  }
+  .safety-orb:not(.is-off) { animation: orb-breathe 3.8s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
 </style>
 </head>
 <body>
@@ -1104,35 +1559,155 @@
   </div>
 
   <!-- ------------------------------------------------------------------ -->
+  <!-- SCREEN: Sign in / create account                                   -->
+  <div class="screen auth-screen" id="screen-auth">
+    <div class="auth-brand">
+      <img class="auth-logo" src="logo/upright-logo.svg" alt="Upright logo" />
+      <span class="auth-wordmark">Upright</span>
+    </div>
+    <h1 class="auth-title" id="auth-title">Welcome back</h1>
+    <p class="auth-copy" id="auth-copy">Sign in to keep your safety profile and emergency contacts close.</p>
+    <div class="auth-switch" role="tablist" aria-label="Account access">
+      <button type="button" class="is-active" id="login-tab" onclick="setAuthMode('login')">Log in</button>
+      <button type="button" id="register-tab" onclick="setAuthMode('register')">Create account</button>
+    </div>
+    <form class="auth-form" id="auth-form" onsubmit="authenticate(event)">
+      <label class="field">
+        <span class="field-label">Email</span>
+        <input class="field-input" type="email" name="email" autocomplete="email" placeholder="you@example.com" required />
+      </label>
+      <label class="field">
+        <span class="field-label">Password</span>
+        <input class="field-input" type="password" name="password" autocomplete="current-password" minlength="8" placeholder="At least 8 characters" required />
+      </label>
+      <p class="auth-error" id="auth-error" role="alert"></p>
+      <button class="btn ink" id="auth-submit" type="submit">Log in</button>
+    </form>
+    <p class="auth-note">Prototype access is stored only in this browser. No data is sent to a server; use a demo password, not a password you use elsewhere.</p>
+  </div>
+
+  <!-- SCREEN: First-time profile setup -->
+  <div class="screen" id="screen-setup">
+    <div class="setup-step">Step 1 of 1 · Your safety profile</div>
+    <h1 class="h-title" style="padding-top:12px;">Set up your profile</h1>
+    <p class="setup-intro">Tell us which glasses you use and who should be contacted if you need help.</p>
+    <form class="profile-form" id="setup-form" onsubmit="saveProfile(event, 'setup')">
+      <div class="form">
+        <label class="field">
+          <span class="field-label">Your name</span>
+          <input class="field-input" type="text" name="userName" autocomplete="name" placeholder="Full name" required />
+        </label>
+        <label class="field">
+          <span class="field-label">Glasses model</span>
+          <select class="field-select" name="glassesModel" required>
+            <option value="" disabled selected>Select your glasses</option>
+            <option>Meta Ray-Ban Wayfarer</option>
+            <option>Meta Ray-Ban Headliner</option>
+            <option>Oakley Meta HSTN</option>
+            <option>Other smart glasses</option>
+            <option>I don’t have them yet</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">Emergency contact</span>
+          <input class="field-input" type="text" name="contactName" autocomplete="off" placeholder="Contact’s full name" required />
+        </label>
+        <label class="field">
+          <span class="field-label">Relationship</span>
+          <select class="field-select" name="contactRelation" required>
+            <option value="" disabled selected>Choose relationship</option>
+            <option>Partner</option><option>Parent</option><option>Sibling</option>
+            <option>Friend</option><option>Caregiver</option><option>Other</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">Emergency contact phone</span>
+          <input class="field-input" type="tel" name="contactPhone" autocomplete="tel" placeholder="+39 333 123 4567" required />
+        </label>
+      </div>
+      <p class="auth-error" id="setup-error" role="alert"></p>
+      <div class="form-actions"><button class="btn ink" type="submit">Save and continue</button></div>
+    </form>
+    <p class="form-note">Your contact details stay in this browser in this prototype. Emergency alerts are not sent by this demo.</p>
+  </div>
+
+  <!-- SCREEN: Profile settings -->
+  <div class="screen" id="screen-profile">
+    <div class="strip">
+      <button class="back" onclick="go('home')">Home</button>
+      <span class="page">Profile</span>
+    </div>
+    <h1 class="h-title">Your profile</h1>
+    <p class="setup-intro" id="profile-email"></p>
+    <form class="profile-form" id="profile-form" onsubmit="saveProfile(event, 'profile')">
+      <div class="form">
+        <label class="field">
+          <span class="field-label">Your name</span>
+          <input class="field-input" type="text" name="userName" autocomplete="name" required />
+        </label>
+        <label class="field">
+          <span class="field-label">Glasses model</span>
+          <select class="field-select" name="glassesModel" required>
+            <option>Meta Ray-Ban Wayfarer</option>
+            <option>Meta Ray-Ban Headliner</option>
+            <option>Oakley Meta HSTN</option>
+            <option>Other smart glasses</option>
+            <option>I don’t have them yet</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">Emergency contact</span>
+          <input class="field-input" type="text" name="contactName" required />
+        </label>
+        <label class="field">
+          <span class="field-label">Relationship</span>
+          <select class="field-select" name="contactRelation" required>
+            <option>Partner</option><option>Parent</option><option>Sibling</option>
+            <option>Friend</option><option>Caregiver</option><option>Other</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">Emergency contact phone</span>
+          <input class="field-input" type="tel" name="contactPhone" autocomplete="tel" required />
+        </label>
+      </div>
+      <p class="auth-error" id="profile-error" role="alert"></p>
+      <div class="form-actions"><button class="btn ink" type="submit">Save profile</button></div>
+    </form>
+    <button class="logout-btn" type="button" onclick="logout()">Log out</button>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
   <!-- SCREEN: Home                                                       -->
   <!-- ------------------------------------------------------------------ -->
   <div class="screen on" id="screen-home">
     <div class="strip">
       <span class="label">Safety · Home</span>
-      <span class="page">01</span>
+      <button type="button" class="profile-shortcut" aria-label="My profile" title="My profile" onclick="go('profile')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="8" r="3.5"/>
+          <path d="M4.5 20c.7-3.4 3.4-5.3 7.5-5.3s6.8 1.9 7.5 5.3"/>
+        </svg>
+      </button>
     </div>
     <h1 class="h-title">Safety</h1>
 
     <div class="status">
       <div class="status-top">
         <div class="status-text">
-          <p class="status-title" id="st-title">Fall detection on</p>
-          <p class="status-sub" id="st-sub">If you fall and don&rsquo;t say you&rsquo;re okay, your contacts are alerted.</p>
+          <p class="status-title" id="st-title">Protection is on</p>
         </div>
-        <div class="status-disc on" id="st-disc" aria-hidden="true">
-          <svg width="30" height="32" viewBox="0 0 22 24" fill="none">
-            <path d="M11 1 L1 5 V12 C1 18 5 22 11 23 C17 22 21 18 21 12 V5 Z" fill="currentColor"/>
-            <path class="i-on" d="M6.5 12 L9.8 15 L15.5 9" stroke="#00933C" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
-            <path class="i-off" d="M7.5 8.5 L14.5 15.5 M14.5 8.5 L7.5 15.5" stroke="#EE352E" stroke-width="2.2" stroke-linecap="square" fill="none"/>
+      </div>
+      <button type="button" class="safety-orb" id="fall-btn" aria-label="Deactivate fall protection" aria-pressed="true" onclick="ask('fall')">
+        <span class="orb-content">
+          <svg class="orb-icon" viewBox="0 0 1024 1024" fill="none" aria-hidden="true">
+            <path d="M330 760 C520 760 670 680 670 500 L670 450" stroke="#FFFFFF" stroke-width="96" stroke-linecap="round"/>
+            <circle cx="670" cy="280" r="72" fill="#A7F3E9"/>
           </svg>
-        </div>
-      </div>
-      <div class="status-foot">
-        <button type="button" class="big-toggle" id="fall-btn" aria-label="Fall detection" aria-pressed="true" onclick="ask('fall')">
-          <span class="big-toggle-hint" id="fall-hint">Tap to turn off</span>
-          <span class="switch" id="fall-sw" aria-hidden="true"></span>
-        </button>
-      </div>
+          <span class="orb-action" id="orb-action">Tap to pause</span>
+        </span>
+      </button>
+      <p class="status-sub orb-caption" id="st-sub">Fall protection active · no real alerts in this demo</p>
     </div>
 
     <button type="button" class="control" id="loc-btn" aria-label="Location sharing" aria-pressed="true" onclick="ask('loc')">
@@ -1143,42 +1718,20 @@
       <span class="switch" id="loc-sw" aria-hidden="true"></span>
     </button>
 
-    <!-- Same four things the native app reports: glasses link, sensor
-         stream, fall camera, and the analysis server. -->
-    <div class="specs">
-      <div class="spec"><span class="spec-key">Glasses</span><span class="spec-val"><span class="dot"></span>Connected</span></div>
-      <div class="spec"><span class="spec-key">Sensor data</span><span class="spec-val" id="sp-sensor"><span class="dot"></span>Receiving</span></div>
-      <div class="spec"><span class="spec-key">Camera</span><span class="spec-val" id="sp-camera">Standby</span></div>
-      <div class="spec"><span class="spec-key">Server</span><span class="spec-val"><span class="dot"></span>Online</span></div>
-    </div>
-
     <div class="section">
       <div class="section-head">
         <h2>Emergency contacts</h2>
-        <span class="section-head-meta">3 people</span>
+        <span class="section-head-meta">1 person</span>
       </div>
-      <button class="contact slim" onclick="go('contacts')">
-        <div class="contact-main">
-          <span class="contact-name">Elena Lakhani</span>
-          <span class="contact-rel">Mother</span>
-        </div>
-        <span class="contact-chev">›</span>
-      </button>
-      <button class="contact slim" onclick="go('contacts')">
-        <div class="contact-main">
-          <span class="contact-name">Marco Rossi</span>
-          <span class="contact-rel">Flatmate</span>
-        </div>
-        <span class="contact-chev">›</span>
-      </button>
-      <button class="contact slim" onclick="go('contacts')">
-        <div class="contact-main">
-          <span class="contact-name">Sofia Lakhani</span>
-          <span class="contact-rel">Sister</span>
-        </div>
-        <span class="contact-chev">›</span>
-      </button>
+      <div id="home-contact-list"></div>
     </div>
+    <button class="fall-preview" type="button" onclick="startFallDemo()">
+      <span class="fall-preview-copy">
+        <strong>Anteprima rilevamento caduta</strong>
+        <small>Prova il conto alla rovescia e l’avviso</small>
+      </span>
+      <span class="fall-preview-arrow" aria-hidden="true">›</span>
+    </button>
   </div>
 
   <!-- ------------------------------------------------------------------ -->
@@ -1193,46 +1746,14 @@
 
     <div class="section" style="margin-top: 4px;">
       <div class="section-head">
-        <h2>3 contacts</h2>
-        <button class="action" onclick="go('edit')">+ Add</button>
+        <h2 id="contacts-count">1 contact</h2>
       </div>
-      <button class="contact" onclick="go('edit')">
-        <div class="contact-main">
-          <span class="contact-name">Elena Lakhani</span>
-          <span class="contact-rel">Mother</span>
-          <span class="contact-info">+39 342 149 6978<br/>elena.lakhani@proton.me</span>
-        </div>
-        <span class="contact-chev">›</span>
-      </button>
-      <button class="contact" onclick="go('edit')">
-        <div class="contact-main">
-          <span class="contact-name">Marco Rossi</span>
-          <span class="contact-rel">Flatmate</span>
-          <span class="contact-info">+39 333 902 5518<br/>marco.rossi@ethz.ch</span>
-        </div>
-        <span class="contact-chev">›</span>
-      </button>
-      <button class="contact" onclick="go('edit')">
-        <div class="contact-main">
-          <span class="contact-name">Sofia Lakhani</span>
-          <span class="contact-rel">Sister</span>
-          <span class="contact-info">+358 40 715 2264<br/>sofia.lakhani@aalto.fi</span>
-        </div>
-        <span class="contact-chev">›</span>
-      </button>
-
-      <button class="contact slim" onclick="go('edit')">
-        <div class="contact-main">
-          <span class="contact-name">Add contact</span>
-          <span class="contact-rel">Up to 5 people</span>
-        </div>
-        <span class="contact-chev">+</span>
-      </button>
+      <div id="contacts-list"></div>
     </div>
 
     <p class="form-note" style="margin-top:22px;">
-      Everyone on this list gets the alert at the same time. It links to a photo
-      from your glasses with faces blurred, and to a map if location sharing is on.
+      Contact details are saved in this browser. Fall alerts, location sharing and
+      emergency messages are demo-only and are not actually sent.
     </p>
   </div>
 
@@ -1334,7 +1855,7 @@
       <div class="seal-badge" aria-hidden="true">
         <svg viewBox="0 0 22 24" width="48" height="52" fill="none">
           <path d="M11 1 L1 5 V12 C1 18 5 22 11 23 C17 22 21 18 21 12 V5 Z" fill="currentColor"/>
-          <path d="M6.5 12 L9.8 15 L15.5 9" stroke="#EEEBE3" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
+          <path d="M6.5 12 L9.8 15 L15.5 9" stroke="#F1FAF8" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
         </svg>
       </div>
       <div class="seal-text">
@@ -1429,6 +1950,64 @@
     </p>
   </div>
 
+  <!-- Fall detected: countdown, cancel, or simulate an emergency alert. -->
+  <div class="screen fall-flow-screen" id="screen-fall-detected">
+    <button class="fall-flow-back" type="button" onclick="go('home')">← Home</button>
+    <div class="fall-flow-icon" aria-hidden="true">
+      <svg viewBox="0 0 36 36" fill="none">
+        <path d="M18 4 33 31H3L18 4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M18 13v8m0 4h.01" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <h1>Caduta rilevata</h1>
+    <p class="fall-flow-copy">Va tutto bene? Se non rispondi, prepareremo un avviso per il tuo contatto di emergenza.</p>
+    <div class="fall-countdown" id="fall-countdown" role="timer" aria-live="polite">20</div>
+    <p class="fall-flow-copy">L’avviso partirà al termine del conto alla rovescia.</p>
+    <div class="fall-flow-actions">
+      <button class="btn ink" type="button" onclick="cancelFallDemo()">Sto bene</button>
+      <button class="btn fall-help-btn" type="button" onclick="sendFallAlert()">Chiedi aiuto ora</button>
+    </div>
+    <p class="fall-demo-note">Anteprima demo: nessuna chiamata o notifica reale viene inviata.</p>
+  </div>
+
+  <div class="screen fall-flow-screen alert-sent" id="screen-fall-alert">
+    <button class="fall-flow-back" type="button" onclick="go('home')">← Home</button>
+    <div class="fall-flow-icon" aria-hidden="true">
+      <svg viewBox="0 0 36 36" fill="none">
+        <path d="M18 4 33 31H3L18 4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M18 13v8m0 4h.01" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <h1>Avviso inviato</h1>
+    <p class="fall-flow-copy">Il flusso reale avviserebbe il tuo contatto di emergenza e condividerebbe le informazioni utili.</p>
+    <div class="fall-alert-card">
+      <span>Contatto di emergenza</span>
+      <strong id="fall-alert-contact">Contatto non configurato</strong>
+      <span id="fall-alert-phone"></span>
+    </div>
+    <p class="fall-demo-note">Questa è un’anteprima: in questa demo l’avviso non viene inviato davvero.</p>
+    <div class="fall-flow-actions">
+      <button class="btn ink" type="button" onclick="go('home')">Torna alla home</button>
+      <button class="btn" type="button" onclick="startFallDemo()">Riprova l’anteprima</button>
+    </div>
+  </div>
+
+  <div class="screen fall-flow-screen" id="screen-fall-safe">
+    <button class="fall-flow-back" type="button" onclick="go('home')">← Home</button>
+    <div class="fall-flow-icon" aria-hidden="true">
+      <svg viewBox="0 0 36 36" fill="none">
+        <circle cx="18" cy="18" r="14" stroke="currentColor" stroke-width="2"/>
+        <path d="m11 18 5 5 9-10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <h1>Perfetto, ci siamo</h1>
+    <p class="fall-flow-copy">Hai annullato l’avviso. Il tuo contatto di emergenza non è stato notificato.</p>
+    <div class="fall-flow-actions">
+      <button class="btn ink" type="button" onclick="go('home')">Torna alla home</button>
+    </div>
+    <p class="fall-demo-note">Anteprima demo: nessuna notifica reale è stata inviata.</p>
+  </div>
+
   <!-- Tab bar -->
   <nav class="tabbar" aria-label="Sections">
     <button class="tab is-active" data-tab="home" onclick="go('home')">
@@ -1460,25 +2039,37 @@
 
 <script src="data/trust-panel.js"></script>
 <script>
-  const screens = ["home", "contacts", "edit", "trust", "rawsbom"];
+  const screens = ["auth", "setup", "profile", "home", "contacts", "edit", "trust", "rawsbom", "fall-detected", "fall-alert", "fall-safe"];
+  let fallCountdownTimer = null;
   // Which tab in the bar should light up when we are on a given screen. Sub
   // screens inherit from their parent so the bar never goes blank.
   const TAB_FOR_SCREEN = {
     home: "home",
     contacts: "contacts",
     edit: "contacts",
+    profile: "home",
     trust: "trust",
     rawsbom: "trust",
   };
-  function go(name) {
+  function go(name, updateUrl = true) {
     screens.forEach(s => {
       document.getElementById("screen-" + s).classList.toggle("on", s === name);
     });
+    if (name === "fall-alert") updateFallAlertContact();
     const activeTab = TAB_FOR_SCREEN[name];
     document.querySelectorAll(".tab").forEach(t => {
       t.classList.toggle("is-active", t.dataset.tab === activeTab);
     });
     const frame = document.querySelector(".frame");
+    frame.classList.toggle("auth-mode", name === "auth" || name === "setup");
+    frame.classList.toggle("alert-mode", name.startsWith("fall-"));
+    if (name !== "fall-detected" && fallCountdownTimer !== null) {
+      clearInterval(fallCountdownTimer);
+      fallCountdownTimer = null;
+    }
+    if (updateUrl && window.location.hash !== "#/" + name) {
+      history.replaceState(null, "", "#/" + name);
+    }
     if (frame) frame.scrollTop = 0;
     document.querySelectorAll(".screen").forEach(s => s.scrollTop = 0);
   }
@@ -1497,51 +2088,228 @@
   const COPY = {
     fall: {
       title: "Turn off fall detection?",
-      body: "The app will stop watching for falls. If something happens, nobody is alerted automatically.",
+      body: "The demo will stop showing fall monitoring as active. This prototype does not send real alerts.",
       bullets: [
-        "<strong>Elena, Marco and Sofia</strong> will be told that fall detection is off.",
-        "You can turn it back on from the home screen at any time.",
+        "<strong>Your emergency contact</strong> is saved in your profile but will not receive a notification from this demo.",
+        "You can switch the demo state back on from the home screen at any time.",
       ],
-      toastOff: "Fall detection off. Your contacts were told.",
-      toastOn: "Fall detection on.",
+      toastOff: "Fall detection off in this demo. No alert was sent.",
+      toastOn: "Fall detection on in this demo.",
     },
     loc: {
       title: "Turn off location sharing?",
-      body: "Your contacts are still alerted if you fall, but the alert won\u2019t show where you are.",
+      body: "This demo will stop including location in its simulated alert. No real alerts or location are sent.",
       bullets: [
-        "<strong>Elena, Marco and Sofia</strong> will be told that location sharing is off.",
-        "You can turn it back on from the home screen at any time.",
+        "<strong>Your emergency contact</strong> stays saved in your profile.",
+        "You can switch the demo state back on from the home screen at any time.",
       ],
-      toastOff: "Location sharing off. Your contacts were told.",
-      toastOn: "Location sharing on.",
+      toastOff: "Location sharing off in this demo. No alert was sent.",
+      toastOn: "Location sharing on in this demo.",
     },
   };
 
   const $ = (id) => document.getElementById(id);
+  const ACCOUNT_KEY = "upright.accounts.v1";
+  const SESSION_KEY = "upright.session.v1";
+  const PROFILE_KEY = "upright.profile.v1:";
+  const PASSWORD_ITERATIONS = 120000;
+  let authMode = "login";
+  let currentEmail = null;
+  let profile = null;
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    $("login-tab").classList.toggle("is-active", mode === "login");
+    $("register-tab").classList.toggle("is-active", mode === "register");
+    $("auth-title").textContent = mode === "login" ? "Welcome back" : "Your safety, in good hands";
+    $("auth-copy").textContent = mode === "login"
+      ? "Sign in to keep your safety profile and emergency contacts close."
+      : "Create an account to set up your glasses and emergency contact.";
+    $("auth-submit").textContent = mode === "login" ? "Log in" : "Create account";
+    $("auth-form").elements.password.autocomplete = mode === "login" ? "current-password" : "new-password";
+    $("auth-error").textContent = "";
+  }
+
+  function readAccounts() {
+    const accounts = JSON.parse(localStorage.getItem(ACCOUNT_KEY) || "{}");
+    if (!accounts || typeof accounts !== "object" || Array.isArray(accounts)) {
+      throw new Error("Saved account data is invalid. Clear this browser’s local app data and try again.");
+    }
+    return accounts;
+  }
+
+  function toBase64(bytes) {
+    return btoa(String.fromCharCode(...new Uint8Array(bytes)));
+  }
+
+  async function passwordHash(password, salt) {
+    if (!window.crypto || !window.crypto.subtle) {
+      throw new Error("Secure password support is unavailable. Open this app on localhost or HTTPS.");
+    }
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(password),
+      "PBKDF2",
+      false,
+      ["deriveBits"]
+    );
+    const hash = await crypto.subtle.deriveBits(
+      { name: "PBKDF2", salt, iterations: PASSWORD_ITERATIONS, hash: "SHA-256" },
+      key,
+      256
+    );
+    return toBase64(hash);
+  }
+
+  async function authenticate(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const email = String(new FormData(form).get("email") || "").trim().toLowerCase();
+    const password = String(new FormData(form).get("password") || "");
+    const submit = $("auth-submit");
+    $("auth-error").textContent = "";
+    submit.disabled = true;
+    submit.textContent = authMode === "login" ? "Signing in…" : "Creating account…";
+    try {
+      const accounts = readAccounts();
+      if (authMode === "register") {
+        if (accounts[email]) {
+          throw new Error("An account already exists for this email. Log in instead.");
+        }
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        accounts[email] = {
+          salt: toBase64(salt),
+          hash: await passwordHash(password, salt),
+          iterations: PASSWORD_ITERATIONS,
+        };
+        localStorage.setItem(ACCOUNT_KEY, JSON.stringify(accounts));
+      } else {
+        const account = accounts[email];
+        if (!account || typeof account.salt !== "string" || typeof account.hash !== "string") {
+          throw new Error("No account found for this email. Check the address or create an account.");
+        }
+        const salt = Uint8Array.from(atob(account.salt), (char) => char.charCodeAt(0));
+        const computed = await passwordHash(password, salt);
+        if (computed !== account.hash) throw new Error("Incorrect email or password.");
+      }
+      localStorage.setItem(SESSION_KEY, email);
+      form.reset();
+      currentEmail = email;
+      profile = readProfile(email);
+      if (profile) {
+        fillProfileForm("profile-form", profile);
+        updateProfileViews();
+        go("home");
+      } else {
+        fillProfileForm("setup-form", {});
+        go("setup");
+      }
+    } catch (error) {
+      $("auth-error").textContent = error instanceof Error
+        ? error.message
+        : "Could not access local account storage. Check your browser settings and try again.";
+    } finally {
+      submit.disabled = false;
+      submit.textContent = authMode === "login" ? "Log in" : "Create account";
+    }
+  }
+
+  function readProfile(email) {
+    const saved = localStorage.getItem(PROFILE_KEY + email);
+    return saved ? JSON.parse(saved) : null;
+  }
+
+  function fillProfileForm(formId, values) {
+    const form = $(formId);
+    Object.keys(values).forEach((key) => {
+      const field = form.elements.namedItem(key);
+      if (field) field.value = values[key];
+    });
+  }
+
+  function updateProfileViews() {
+    if (!profile) return;
+    $("profile-email").textContent = currentEmail || "";
+    const contact = `
+      <button class="contact slim" type="button" onclick="go('contacts')">
+        <span class="contact-main">
+          <span class="contact-name">${escape(profile.contactName)}</span>
+          <span class="contact-rel">${escape(profile.contactRelation)}</span>
+        </span>
+        <span class="contact-chev">›</span>
+      </button>`;
+    $("home-contact-list").innerHTML = contact;
+    $("contacts-list").innerHTML = `
+      <button class="contact" type="button" onclick="go('profile')">
+        <span class="contact-main">
+          <span class="contact-name">${escape(profile.contactName)}</span>
+          <span class="contact-rel">${escape(profile.contactRelation)}</span>
+          <span class="contact-info">${escape(profile.contactPhone)}</span>
+        </span>
+        <span class="contact-chev">›</span>
+      </button>`;
+    $("contacts-count").textContent = "1 emergency contact";
+    fillProfileForm("profile-form", profile);
+  }
+
+  function saveProfile(event, destination) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const error = $(destination === "setup" ? "setup-error" : "profile-error");
+    error.textContent = "";
+    if (!currentEmail) {
+      error.textContent = "Your session has expired. Please log in again.";
+      go("auth");
+      return;
+    }
+    const values = Object.fromEntries(new FormData(form).entries());
+    const savedProfile = Object.fromEntries(
+      Object.entries(values).map(([key, value]) => [key, String(value).trim()])
+    );
+    try {
+      localStorage.setItem(PROFILE_KEY + currentEmail, JSON.stringify(savedProfile));
+      profile = savedProfile;
+      updateProfileViews();
+      go("home");
+      if (destination === "profile") showToast(true, "Your profile has been saved.");
+    } catch (storageError) {
+      error.textContent = storageError instanceof Error
+        ? "Could not save your profile in this browser. Check available storage and try again."
+        : "Could not save your profile. Check your browser settings and try again.";
+    }
+  }
+
+  function logout() {
+    try {
+      localStorage.removeItem(SESSION_KEY);
+      currentEmail = null;
+      profile = null;
+      setAuthMode("login");
+      $("auth-form").reset();
+      go("auth");
+    } catch (error) {
+      showToast(false, "Could not log out. Check your browser settings and try again.");
+    }
+  }
 
   function render() {
     const { fall, loc } = state;
 
-    $("st-title").textContent = fall ? "Fall detection on" : "Fall detection off";
+    $("st-title").textContent = fall ? "Protection is on" : "Protection is paused";
     $("st-sub").textContent = fall
-      ? "If you fall and don\u2019t say you\u2019re okay, your contacts are alerted."
-      : "Nobody is alerted if you fall. Turn it back on when you can.";
-    $("st-disc").className = "status-disc " + (fall ? "on" : "off");
-    $("fall-sw").classList.toggle("is-off", !fall);
+      ? "Fall protection active · no real alerts in this demo"
+      : "Fall protection paused · tap to turn it back on";
+    $("fall-btn").classList.toggle("is-off", !fall);
     $("fall-btn").setAttribute("aria-pressed", String(fall));
-    $("fall-hint").textContent = fall ? "Tap to turn off" : "Tap to turn on";
+    $("fall-btn").setAttribute("aria-label", fall ? "Deactivate fall protection" : "Activate fall protection");
+    $("orb-action").textContent = fall ? "Tap to pause" : "Tap to activate";
 
     $("loc-sw").classList.toggle("is-off", !loc);
     $("loc-btn").setAttribute("aria-pressed", String(loc));
     $("loc-val").textContent = loc
-      ? "On \u00b7 sent with a fall alert"
-      : "Off \u00b7 not sent with alerts";
+      ? "On \u00b7 shown in demo only"
+      : "Off \u00b7 excluded from demo";
 
-    // With detection off the app stops reading the sensors and the camera.
-    $("sp-sensor").innerHTML = fall
-      ? '<span class="dot"></span>Receiving'
-      : '<span class="dot off"></span>Paused';
-    $("sp-camera").textContent = fall ? "Standby" : "Off";
   }
 
   function ask(kind) {
@@ -1585,6 +2353,31 @@
     $("toast").classList.add("on");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => $("toast").classList.remove("on"), 3500);
+  }
+
+  function startFallDemo(updateUrl = true) {
+    if (fallCountdownTimer !== null) clearInterval(fallCountdownTimer);
+    let remaining = 20;
+    $("fall-countdown").textContent = String(remaining);
+    go("fall-detected", updateUrl);
+    fallCountdownTimer = setInterval(() => {
+      remaining -= 1;
+      $("fall-countdown").textContent = String(remaining);
+      if (remaining <= 0) sendFallAlert();
+    }, 1000);
+  }
+
+  function cancelFallDemo() {
+    go("fall-safe");
+  }
+
+  function sendFallAlert() {
+    go("fall-alert");
+  }
+
+  function updateFallAlertContact() {
+    $("fall-alert-contact").textContent = profile ? profile.contactName : "Contatto non configurato";
+    $("fall-alert-phone").textContent = profile ? profile.contactPhone : "";
   }
 
   // ---------------------------------------------------------------------
@@ -1693,11 +2486,36 @@
   //   #/contacts   #/edit   #/home?confirm=fall   #/home?confirm=loc
   //   #/home?fall=off   #/home?loc=off   (combine with &)
   //   #/trust      #/rawsbom
+  //   #/fall-detected  #/fall-alert
   (function initFromHash() {
     const h = window.location.hash || "";
     const [path, query] = h.replace(/^#\/?/, "").split("?");
     const q = new URLSearchParams(query || "");
-    if (screens.includes(path)) go(path);
+    try {
+      currentEmail = localStorage.getItem(SESSION_KEY);
+      if (!currentEmail) {
+        setAuthMode("login");
+        go("auth");
+        return;
+      }
+      profile = readProfile(currentEmail);
+      if (!profile) {
+        fillProfileForm("setup-form", {});
+        go("setup");
+        return;
+      }
+      fillProfileForm("profile-form", profile);
+      updateProfileViews();
+    } catch (error) {
+      setAuthMode("login");
+      go("auth");
+      $("auth-error").textContent = error instanceof Error
+        ? error.message
+        : "Could not read local account data. Check your browser settings and try again.";
+      return;
+    }
+    if (path === "fall-detected") startFallDemo(false);
+    else if (screens.includes(path) && path !== "auth" && path !== "setup") go(path, false);
     if (q.get("fall") === "off") state.fall = false;
     if (q.get("loc") === "off") state.loc = false;
     render();
@@ -1705,6 +2523,16 @@
     if (confirm === "loc") openSheet("loc");
     else if (confirm) openSheet("fall");
   })();
+
+  window.addEventListener("hashchange", () => {
+    const path = (window.location.hash || "").replace(/^#\/?/, "").split("?")[0];
+    if (!currentEmail || !profile) {
+      go(profile ? "setup" : "auth");
+      return;
+    }
+    if (path === "fall-detected") startFallDemo(false);
+    else if (screens.includes(path) && path !== "auth" && path !== "setup") go(path, false);
+  });
 </script>
 </body>
 </html>
