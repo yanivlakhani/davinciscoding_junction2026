@@ -29,7 +29,9 @@ public struct ServerAssessment: Codable, Sendable, Equatable {
               row["event_id"] as? String == expectedEventId else { throw DeliveryError.invalidResponse }
         let vision = row["vision"] as? [String: Any] ?? [:]
         let error = row["vision_error"]
-        let failed = error != nil && !(error is NSNull)
+        let quality = row["quality"] as? [[String: Any]] ?? []
+        let rejectedFrames = (vision["usable_frames"] as? Int ?? 0) == 0 && !quality.isEmpty && quality.allSatisfy { ($0["usable"] as? Bool) == false }
+        let failed = (error != nil && !(error is NSNull)) || row["status"] as? String == "analysis_unavailable" || rejectedFrames
         let verdict: Bool?
         if failed { verdict = nil }
         else if let value = row["fall_detected"] as? NSNumber, CFGetTypeID(value) == CFBooleanGetTypeID() { verdict = value.boolValue }
@@ -40,8 +42,16 @@ public struct ServerAssessment: Codable, Sendable, Equatable {
             default: verdict = nil
             }
         }
+        let reason: String
+        if rejectedFrames {
+            reason = "All \(quality.count) frames rejected by image-quality checks; check camera view and lighting"
+        } else if failed {
+            reason = "Server could not complete visual analysis"
+        } else {
+            reason = vision["reason"] as? String ?? ""
+        }
         return Self(eventId: expectedEventId, fallDetected: verdict,
-            reason: failed ? "Server could not complete visual analysis" : (vision["reason"] as? String ?? ""), receivedAt: Date(),
+            reason: reason, receivedAt: Date(),
             triggeredAt: triggeredAt ?? (row["created"] as? Double).map { Date(timeIntervalSince1970: $0) } ?? Date(),
             receivedUptimeNs: DispatchTime.now().uptimeNanoseconds)
     }

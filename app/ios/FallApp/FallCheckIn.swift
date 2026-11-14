@@ -10,7 +10,7 @@ final class FallCheckIn {
     private(set) var status = "Enable spoken check-in before a live test"
     private(set) var modelResult = "Waiting for server analysis"
     var language = UserDefaults.standard.string(forKey: "checkInLanguage") ?? "en" {
-        didSet { UserDefaults.standard.set(language, forKey: "checkInLanguage") }
+        didSet { UserDefaults.standard.set(language, forKey: "checkInLanguage"); startPromptWarmup() }
     }
     var listenSeconds: Double = (UserDefaults.standard.object(forKey: "checkInListenSeconds") as? Double) ?? CheckInTiming.replyStartSeconds {
         didSet { UserDefaults.standard.set(listenSeconds, forKey: "checkInListenSeconds") }
@@ -35,16 +35,20 @@ final class FallCheckIn {
     }
     @ObservationIgnored var setCameraSuspended: ((Bool) async throws -> Void)?
     @ObservationIgnored var onFinished: (() -> Void)?
+    @ObservationIgnored var onAudioDiagnostic: ((String, String) -> Void)?
+    var audioDiagnostic: String { audio.diagnosticStatus }
     @ObservationIgnored private var activeTask: Task<Void, Never>?
     private let audio = CheckInAudio()
     private let delivery: ModalDelivery
     private let journal: CheckInJournal
     private var activeEvent: String?
     private var setupGeneration = 0
+    private var promptWarmupTask: Task<Void, Never>?
 
     init(root: URL, delivery: ModalDelivery) {
         self.delivery = delivery; journal = CheckInJournal(root: root)
-        if enabled { status = audio.permitted ? "Ready for a confirmed fall" : "Microphone/speech permission required" }
+        audio.onDiagnostic = { [weak self] event, detail in self?.onAudioDiagnostic?(event, detail) }
+        if enabled { status = audio.permitted ? "Preparing spoken questions" : "Microphone/speech permission required"; startPromptWarmup() }
     }
 
     func setEnabled(_ value: Bool) async {
@@ -52,6 +56,7 @@ final class FallCheckIn {
         let generation = setupGeneration
         if !value {
             enabled = false; UserDefaults.standard.set(false, forKey: "spokenCheckInEnabled")
+            promptWarmupTask?.cancel()
             stop(); await activeTask?.value
             guard setupGeneration == generation else { return }
             status = "Spoken check-in off"; return
@@ -61,29 +66,39 @@ final class FallCheckIn {
         enabled = permitted
         UserDefaults.standard.set(enabled, forKey: "spokenCheckInEnabled")
         guard enabled else { status = "Microphone or speech permission denied"; return }
-        status = "Preparing ElevenLabs question"
-        do {
-            for kind in ["check_in", "contact", "decline", "call", "email_submitted", "email_failed", "call_handoff"] {
-                _ = try await delivery.checkInPrompt(language: language, kind: kind)
-                guard enabled, setupGeneration == generation else { return }
+        startPromptWarmup()
+    }
+
+    private func startPromptWarmup() {
+        promptWarmupTask?.cancel()
+        guard enabled, audio.permitted else { return }
+        let language = language
+        let generation = setupGeneration
+        promptWarmupTask = Task { [weak self, delivery] in
+            guard let self else { return }
+            if !self.busy { self.status = "Preparing spoken questions" }
+            do {
+                try await delivery.preloadCheckInPrompts(language: language)
+                guard !Task.isCancelled, self.enabled, self.setupGeneration == generation, self.language == language else { return }
+                if !self.busy, self.status == "Preparing spoken questions" { self.status = "Ready · spoken questions saved on phone" }
+            } catch {
+                guard !Task.isCancelled, self.enabled, self.setupGeneration == generation else { return }
+                if !self.busy, self.status == "Preparing spoken questions" { self.status = "Voice preload pending · \(error.localizedDescription)" }
             }
-            status = "Ready · spoken questions cached in memory"
-        } catch {
-            guard enabled, setupGeneration == generation else { return }
-            status = "Voice setup pending · \(error.localizedDescription)"
         }
     }
 
     func handle(_ assessment: ServerAssessment, glassesName: String) async {
         do {
             guard try await journal.claim(assessment) else { return }
-            modelResult = assessment.fallDetected == true ? "Fall confirmed" :
+            modelResult = assessment.fallDetected == true ? (assessment.eventId.hasPrefix("test-") ? "TEST · simulated fall confirmed" : "Fall confirmed") :
                 (assessment.fallDetected == false ? "No fall · monitoring continues" : "Analysis unavailable · not a negative result")
             guard !busy else {
                 try await journal.save(assessment, state: "another_check_in_active"); return
             }
             activeEvent = assessment.eventId
             guard let fall = assessment.fallDetected else {
+                status = assessment.reason.isEmpty ? "Visual analysis unavailable · sensors monitoring" : assessment.reason
                 try await journal.save(assessment, state: "analysis_unavailable"); return
             }
             if !fall {
@@ -149,7 +164,7 @@ final class FallCheckIn {
             var question = prompt
             var emailAcknowledged = false
             for _ in 0..<7 {
-                transcript = try await ask(question)
+                transcript = try await ask(question, stage: stage)
                 try Task.checkCancellation()
                 let submission = CheckInSubmission(eventId: assessment.eventId,
                     outcome: transcript == nil ? .noResponse : .response, transcript: transcript, language: language,
@@ -212,7 +227,7 @@ final class FallCheckIn {
         await finish()
     }
 
-    private func ask(_ prompt: Data) async throws -> String? {
+    private func ask(_ prompt: Data, stage: CheckInSubmission.Stage) async throws -> String? {
         for attempt in 0..<2 {
             try Task.checkCancellation()
             status = attempt == 0 ? "Asking through glasses" : "Repeating question once"
@@ -220,7 +235,8 @@ final class FallCheckIn {
             try Task.checkCancellation()
             status = "Listening for your full reply"
             if let transcript = try await audio.listen(language: language,
-                seconds: [10, 15, 20, 30].contains(listenSeconds) ? listenSeconds : 10) { return transcript }
+                seconds: [10, 15, 20, 30].contains(listenSeconds) ? listenSeconds : 10,
+                endPauseSeconds: stage == .initial ? 2.5 : 1.5) { return transcript }
         }
         return nil
     }

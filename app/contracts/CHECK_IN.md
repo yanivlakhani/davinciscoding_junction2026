@@ -125,3 +125,81 @@ or arrival of help is promised. SMTP acceptance is not human acknowledgment.
 References: [Apple phone links](https://developer.apple.com/library/archive/featuredarticles/iPhoneURLScheme_Reference/PhoneLinks/PhoneLinks.html),
 [Meta SDK changelog](https://github.com/facebook/meta-wearables-dat-ios/blob/main/CHANGELOG.md),
 [voice updates](https://elevenlabs.io/docs/help-center/product/voices/voice-library/how-are-voices-updated-changed).
+
+## Explicit POC test
+
+The development app offers **Test confirmed fall · start voice check-in** after
+glasses connection and spoken-check-in opt-in. An authenticated POST to
+`/test/confirmed-fall/test-<UUID>` creates a new event with `test_mode=true` and
+a simulated positive result. It bypasses camera and Claude vision for that event
+only; normal `/analyze` predictions are unchanged. Creation alone never emails.
+The same question, listening, LLM reply analysis and consent/silence rules then
+run. Real test emails carry `[TEST]` in their subject and body. Repeating the same
+test ID returns its existing state without resetting a conversation.
+
+## Cellular call eligibility
+
+The installed Personal Team build uses a `tel:` handoff with iOS confirmation.
+Apple's iOS 26+ Default Dialer entitlement (`com.apple.developer.dialing-app`)
+and LiveCommunicationKit can remove that confirmation once the user chooses the
+app as the default dialer. Apple requires an EU-registered developer account and
+a test device located in the EU for testing. The current Personal Team was checked
+with an isolated Xcode build: it cannot provision Default Dialer. The installed app
+was not replaced with an unsupported entitlement. Locked/background initiation
+still requires separate on-device validation; default-dialer documentation alone
+does not establish that behavior.
+
+For Sonnet 5.5, spoken reply/consent classifiers use `thinking.type=between_tools`
+and low effort so the 200-token output budget produces JSON rather than being
+exhausted by up-front thinking. Missing text remains a retryable unknown; it never
+becomes affirmative consent. Vision-model thinking settings are separate.
+
+## Spoken-turn latency
+
+Enabled check-ins preload fixed ElevenLabs prompts at app startup and after a
+language change, without activating the glasses audio session. Clips are cached
+in RAM and under `prompt-audio/<revision>/` on the phone. `/health` and prompt
+responses provide a SHA-256 revision of question text, voice, model and protocol;
+a change invalidates old clips. Concurrent requests share one download. Only fixed
+assistant phrases are saved; microphone recordings are not saved.
+
+Confirmation replies use a 1.5-second pause after the last recognized update;
+initial injury descriptions retain 2.5 seconds. Final recognition results can finish
+earlier. Neither path stops on a keyword. The ten-second start window, maximum
+reply duration, repeat-on-silence policy and initial three-second delay remain.
+
+Voice playback/listening start and end diagnostics contain monotonic timestamps
+without transcripts. Backend `check_in_timing` logs separate model analysis, email
+submission and handler duration. Client HTTP metrics measure the request around
+those backend intervals. The ElevenLabs HTTP client also reuses connections.
+
+## Exact-reply fast path
+
+The backend checks the complete, finished transcript against explicit English and
+Italian phrase sets before calling Claude. There is no keyword, prefix, fuzzy or
+partial-speech match. Unicode/case, apostrophes, punctuation and whitespace are
+normalized while every word, negation and qualifier is retained. Question marks
+and ellipses fall back to Claude.
+
+| Stage | Example complete reply | Meaning |
+|---|---|---|
+| Initial well-being question | `I'm okay`, `yes`, `okay` | User reports being okay; ask whether to skip contact |
+| Initial well-being question | `no`, `I'm not okay`, `I need help` | Ask about contacting someone; no invented injury details |
+| Email consent | `yes`, `yes please`, `please email them` | Email consent through the existing state machine |
+| Confirm NOT contacting | `yes`, `yes I'm sure` | Confirm no email; finish |
+| Confirm NOT contacting | `no` | Ask the positive email-consent question; do not send yet |
+| Call consent | `yes`, `please call them` | Existing phone-call handoff |
+
+`Okay` never matches email/call consent. Polite `yes please` / `no thanks`
+after the negatively framed confirmation also require Claude. Compound answers
+such as `Yes, but my leg hurts` are sent unchanged to Claude. Full phrase sets
+live in `EXACT_REPLIES` in `backend/fall_server.py`.
+
+Each saved response and `check_in_timing` log records `interpretation_source`
+(`exact_match`, `claude`, or `no_response`), `matcher_version`, and a rule identifier
+without logging the spoken text. The existing private journal retains the full
+transcript. Rule-based initial confidence describes the exact textual mapping,
+not the person's medical condition. Authentication, stage ordering, replay/email
+deduplication and healthy-silence rules apply before/after matching as before.
+The phone still contacts Modal for authoritative state transitions and sending;
+this removes the Claude request for matched turns, not the phone/server request.

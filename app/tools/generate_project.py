@@ -43,7 +43,7 @@ resource_phase = add("resources", isa="PBXResourcesBuildPhase", buildActionMask=
 framework_phase = add("frameworks", isa="PBXFrameworksBuildPhase", buildActionMask=2147483647, files=frameworks, runOnlyForDeploymentPostprocessing=0)
 target_config, project_config = [], []
 for name in ("Debug", "Release"):
-    settings = {"CODE_SIGN_STYLE": "Automatic", "CURRENT_PROJECT_VERSION": "13", "MARKETING_VERSION": "0.1.0",
+    settings = {"CODE_SIGN_STYLE": "Automatic", "CURRENT_PROJECT_VERSION": "26", "MARKETING_VERSION": "0.1.0",
         "PRODUCT_NAME": "$(TARGET_NAME)",
         "INFOPLIST_FILE": "FallApp/Info.plist", "GENERATE_INFOPLIST_FILE": "NO", "SWIFT_VERSION": "6.0",
         "IPHONEOS_DEPLOYMENT_TARGET": "17.2", "TARGETED_DEVICE_FAMILY": "1", "SDKROOT": "iphoneos",
@@ -51,6 +51,7 @@ for name in ("Debug", "Release"):
         "LD_RUNPATH_SEARCH_PATHS": ["$(inherited)", "@executable_path/Frameworks"],
         "SWIFT_OPTIMIZATION_LEVEL": "-Onone" if name == "Debug" else "-O",
         "SWIFT_ACTIVE_COMPILATION_CONDITIONS": "DEBUG" if name == "Debug" else "",
+        "MWDAT_LOG_LEVEL": "debug" if name == "Debug" else "error",
         "ENABLE_USER_SCRIPT_SANDBOXING": "YES", "CLANG_ENABLE_MODULES": "YES"}
     target_config.append(add("target:" + name, isa="XCBuildConfiguration", baseConfigurationReference=config_file, buildSettings=settings, name=name))
     project_config.append(add("project:" + name, isa="XCBuildConfiguration", buildSettings={"CLANG_ENABLE_MODULES": "YES", "SWIFT_VERSION": "6.0"}, name=name))
@@ -88,7 +89,8 @@ info_value = {"CFBundleDevelopmentRegion": "en", "CFBundleDisplayName": "FallApp
     "CFBundleIdentifier": "$(PRODUCT_BUNDLE_IDENTIFIER)", "CFBundleInfoDictionaryVersion": "6.0", "CFBundleName": "$(PRODUCT_NAME)",
     "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "$(MARKETING_VERSION)", "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
     "CFBundleURLTypes": [{"CFBundleURLName": "$(PRODUCT_BUNDLE_IDENTIFIER)", "CFBundleURLSchemes": ["fallapp"]}],
-    "MWDAT": {"AppLinkURLScheme": "fallapp://", "MetaAppID": "$(META_APP_ID)", "ClientToken": "$(CLIENT_TOKEN)", "TeamID": "$(DEVELOPMENT_TEAM)"},
+    "MWDAT": {"AppLinkURLScheme": "fallapp://", "MetaAppID": "$(META_APP_ID)", "ClientToken": "$(CLIENT_TOKEN)", "TeamID": "$(DEVELOPMENT_TEAM)",
+        "Logging": {"Level": "$(MWDAT_LOG_LEVEL)"}},
     "NSBluetoothAlwaysUsageDescription": "Connect to your Meta glasses for local fall monitoring.",
     "NSCameraUsageDescription": "Capture one-second image bursts from your glasses after a fall alert.",
     "NSMicrophoneUsageDescription": "Hear your reply through the glasses microphone after a server-confirmed fall.",

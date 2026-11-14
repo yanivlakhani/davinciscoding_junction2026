@@ -1,7 +1,9 @@
 import SwiftUI
+import UIKit
 
 struct ConnectionView: View {
     @Bindable var controller: GlassesController
+    @State private var showConnectionLog = true
 
     var body: some View {
         ScrollView {
@@ -40,12 +42,39 @@ struct ConnectionView: View {
                         Text(controller.hasMonitoringSession ? "Disconnect" : "Connect glasses").fontWeight(.semibold)
                     }.frame(maxWidth: .infinity).padding(.vertical, 9)
                 }.buttonStyle(.borderedProminent).tint(.blue).disabled(controller.busy)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Connection: \(controller.connection)").font(.subheadline.bold())
+                    Text(controller.diagnostics.snapshot["appAudio"] ?? "Voice audio is inactive")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if let error = controller.error { Text(error).font(.caption).foregroundStyle(.red) }
+                    DisclosureGroup("Live connection log", isExpanded: $showConnectionLog) {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(Array(controller.diagnostics.entries.suffix(30))) { entry in
+                                    Text(entry.line).font(.system(size: 11, design: .monospaced))
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }.textSelection(.enabled)
+                        }.frame(height: 180)
+                        Button("Copy connection diagnostics") { UIPasteboard.general.string = controller.diagnostics.text }
+                            .font(.footnote)
+                    }
+                    if let issue = controller.diagnostics.persistenceError { Text(issue).font(.caption).foregroundStyle(.orange) }
+                }.padding(14).background(.gray.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
                 VStack(alignment: .leading, spacing: 8) {
                     Toggle("Spoken fall check-in", isOn: Binding(
                         get: { controller.checkIn.enabled },
                         set: { value in Task { await controller.checkIn.setEnabled(value) } }))
                     Text("After a confirmed fall, the glasses ask how you feel, then ask before emailing your emergency contact. Two unanswered questions send an email automatically. A separate question offers a phone call, which requires iPhone confirmation. Microphone audio is not saved.")
                         .font(.footnote).foregroundStyle(.secondary)
+                    #if DEBUG
+                    Button("Test confirmed fall · start voice check-in") {
+                        Task { await controller.testConfirmedFall() }
+                    }.buttonStyle(.bordered)
+                        .disabled(!controller.connected || !controller.checkIn.enabled || controller.checkIn.busy || controller.capture.busy || controller.startingVoiceTest)
+                    Text("Test bypasses camera and Claude vision once. The normal voice/email flow runs; test emails are marked [TEST].")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    #endif
                     Text("Speech recognition uses Apple’s service if on-device recognition is unavailable. Glasses must be selected as the Bluetooth audio route.")
                         .font(.footnote).foregroundStyle(.secondary)
                     Picker("Check-in language", selection: Binding(get: { controller.checkIn.language }, set: { controller.checkIn.language = $0 })) {
@@ -102,8 +131,16 @@ struct ConnectionView: View {
                     if controller.status.backgroundSamples > 0 {
                         statusRow("Background data", value: "\(controller.status.backgroundSamples) samples received", color: .green)
                     }
+                    if !controller.deliveryStatus.captureQueueMessage.isEmpty {
+                        Text("Capture issues: " + controller.deliveryStatus.captureQueueMessage)
+                            .font(.footnote).foregroundStyle(.orange)
+                    }
+                    if controller.deliveryStatus.blockedCaptures > 0 {
+                        Text("Capture failed: \(controller.deliveryStatus.blockedCaptures) · logs retained locally")
+                            .font(.footnote).foregroundStyle(.orange)
+                    }
                     HStack {
-                        Text("Queued: \(controller.deliveryStatus.pending)")
+                        Text("Pending upload: \(controller.deliveryStatus.pending)")
                         Spacer()
                         Text("Sent: \(controller.deliveryStatus.delivered)")
                     }.font(.footnote).foregroundStyle(.secondary)

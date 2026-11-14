@@ -256,8 +256,9 @@ final class ModalTransportTests: XCTestCase {
         try await service.flush()
         XCTAssertFalse(MockServerProtocol.state.recorded(host).contains { $0.httpMethod == "POST" })
         let status = try await service.snapshot()
-        XCTAssertEqual(status.pending, 1)
-        XCTAssertTrue(status.message.contains("exceeds seven frames"))
+        XCTAssertEqual(status.pending, 0)
+        XCTAssertEqual(status.blockedCaptures, 1)
+        XCTAssertTrue(status.captureQueueMessage.contains("exceeds seven frames"))
         XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("capture.json").path))
         let settings = ModalServerSettings(baseURL: URL(string: "https://example.invalid")!, apiKey: "test-only-key")
         XCTAssertThrowsError(try ModalRequest.analyze(settings: settings, eventId: id,
@@ -271,6 +272,213 @@ final class ModalTransportTests: XCTestCase {
         let status = try await service.snapshot()
         XCTAssertTrue(status.authenticated); XCTAssertEqual(status.pending, 1); XCTAssertEqual(status.delivered, 0)
         XCTAssertTrue(MockServerProtocol.state.recorded(host).allSatisfy { $0.httpMethod == "GET" })
+    }
+
+    func testRetainedIncompleteCaptureDoesNotReplaceSuccessfulDeliveryStatus() async throws {
+        let (root, service, _) = try setup()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try queue(root, capture: true)
+        let oldID = "old-incomplete"
+        try Data("{}".utf8).write(to: root.appendingPathComponent("outbox/" + oldID + ".json"))
+        let directory = root.appendingPathComponent("captures/" + oldID)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let manifest = CaptureManifest(eventId: oldID, complete: false, frames: [], durationSeconds: 0, error: "Camera permission required")
+        try JSONEncoder().encode(manifest).write(to: directory.appendingPathComponent("capture.json"))
+        try await service.flush()
+        let first = try await service.snapshot()
+        XCTAssertEqual(first.delivered, 1)
+        XCTAssertEqual(first.pending, 0)
+        XCTAssertEqual(first.blockedCaptures, 1)
+        XCTAssertEqual(first.message, "Analysis unavailable · monitoring continues")
+        XCTAssertTrue(first.captureQueueMessage.contains("Incomplete capture"))
+        try await service.flush()
+        let second = try await service.snapshot()
+        XCTAssertEqual(second.message, first.message)
+        XCTAssertEqual(second.captureQueueMessage, first.captureQueueMessage)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("capture.json").path))
+    }
+
+    func testCaptureWithoutManifestBecomesBlockedButLateFramesRecover() async throws {
+        let (root, service, host) = try setup()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try queue(root, capture: false)
+        let notice = root.appendingPathComponent("outbox/" + id + ".json")
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-180)], ofItemAtPath: notice.path)
+        try await service.flush()
+        let blocked = try await service.snapshot()
+        XCTAssertEqual(blocked.pending, 0)
+        XCTAssertEqual(blocked.blockedCaptures, 1)
+        XCTAssertTrue(blocked.captureQueueMessage.contains("capture interrupted"))
+        XCTAssertFalse(MockServerProtocol.state.recorded(host).contains { $0.httpMethod == "POST" })
+        XCTAssertTrue(FileManager.default.fileExists(atPath: notice.path))
+        // A late capture is picked up automatically; its original notice is retained.
+        try queue(root, capture: true)
+        try await service.flush()
+        let recovered = try await service.snapshot()
+        XCTAssertEqual(recovered.delivered, 1)
+        XCTAssertEqual(recovered.pending, 0)
+        XCTAssertEqual(recovered.blockedCaptures, 0)
+        XCTAssertEqual(recovered.captureQueueMessage, "")
+    }
+
+    func testNewestReadyCaptureIsSentBeforeOldUploadBacklog() async throws {
+        let (root, service, host) = try setup()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try queue(root, capture: true)
+        let oldID = "000-old-ready"
+        try Data("{}".utf8).write(to: root.appendingPathComponent("outbox/" + oldID + ".json"))
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-180)],
+            ofItemAtPath: root.appendingPathComponent("outbox/" + oldID + ".json").path)
+        let directory = root.appendingPathComponent("captures/" + oldID)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try image.write(to: directory.appendingPathComponent("frame-0.jpg"))
+        try JSONEncoder().encode(CaptureManifest(eventId: oldID, complete: true, frames: ["frame-0.jpg"], durationSeconds: 1, error: nil))
+            .write(to: directory.appendingPathComponent("capture.json"))
+        MockServerProtocol.state.set(host) { request in
+            if request.url!.path == "/health" { return (200, "{\"ok\":true}") }
+            if request.httpMethod != "POST" { return (404, "{\"detail\":\"unknown event\"}") }
+            let eventID = request.value(forHTTPHeaderField: "Idempotency-Key")!
+            return (200, "{\"event_id\":\"\(eventID)\",\"fall_detected\":false}")
+        }
+        try await service.flush()
+        let posts = MockServerProtocol.state.recorded(host).filter { $0.httpMethod == "POST" }
+        XCTAssertEqual(posts.count, 2)
+        XCTAssertEqual(posts.first?.value(forHTTPHeaderField: "Idempotency-Key"), id)
+        let status = try await service.snapshot()
+        XCTAssertEqual(status.delivered, 2)
+    }
+
+    func testExplicitCleanupDeletesPendingCapturesAndRepliesButKeepsHistory() throws {
+        let (root, _, _) = try setup()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try queue(root, capture: true)
+        for folder in ["check-in-outbox", "delivered", "server-responses", "captures/delivered-event", "sessions"] {
+            try FileManager.default.createDirectory(at: root.appendingPathComponent(folder), withIntermediateDirectories: true)
+        }
+        let preserved = ["delivered/delivered-event.json", "server-responses/delivered-event.json", "captures/delivered-event/frame.jpg", "sessions/motion.jsonl"]
+        for file in preserved { try Data("keep".utf8).write(to: root.appendingPathComponent(file)) }
+        // Duplicate queued notice must not remove its delivered image history.
+        try Data("{}".utf8).write(to: root.appendingPathComponent("outbox/delivered-event.json"))
+        try Data("{}".utf8).write(to: root.appendingPathComponent("check-in-outbox/pending-reply.json"))
+        let result = try ModalQueueMaintenance.clearPending(root: root)
+        XCTAssertEqual(result.captureEvents, 2)
+        XCTAssertEqual(result.checkInReplies, 1)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("outbox").path), [])
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("check-in-outbox").path), [])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("captures/" + id).path))
+        for file in preserved { XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent(file)), Data("keep".utf8)) }
+        let repeated = try ModalQueueMaintenance.clearPending(root: root)
+        XCTAssertEqual(repeated.captureEvents, 0)
+        XCTAssertEqual(repeated.checkInReplies, 0)
+    }
+
+    func testExplicitVoiceTestRequiresMarkedPositiveServerEvent() async throws {
+        let (root, service, host) = try setup()
+        defer { try? FileManager.default.removeItem(at: root) }
+        MockServerProtocol.state.set(host) { request in
+            let id = request.url!.lastPathComponent
+            return (200, "{\"event_id\":\"\(id)\",\"test_mode\":true,\"fall_detected\":true}")
+        }
+        let result = try await service.confirmedFallTest()
+        XCTAssertEqual(result.fallDetected, true)
+        XCTAssertTrue(result.eventId.hasPrefix("test-"))
+        let request = try XCTUnwrap(MockServerProtocol.state.recorded(host).first)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertTrue(request.url!.path.hasPrefix("/test/confirmed-fall/test-"))
+        XCTAssertEqual(request.value(forHTTPHeaderField: "x-api-key"), "test-only-key")
+        MockServerProtocol.state.set(host) { request in
+            (200, "{\"event_id\":\"\(request.url!.lastPathComponent)\",\"fall_detected\":true}")
+        }
+        do { _ = try await service.confirmedFallTest(); XCTFail("Unmarked results cannot pass as test confirmations") }
+        catch { }
+    }
+
+    func testFreshUploadSkipsLookupAndPersistsAttemptBeforeSending() async throws {
+        let (root, service, host) = try setup()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try queue(root, capture: true)
+        try await service.flush()
+        let requests = MockServerProtocol.state.recorded(host)
+        XCTAssertFalse(requests.contains { $0.url?.path == "/event/" + id })
+        XCTAssertEqual(requests.filter { $0.httpMethod == "POST" }.count, 1)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("captures/" + id + "/upload-attempt.json").path))
+        let log = try String(contentsOf: root.appendingPathComponent("network.jsonl"), encoding: .utf8)
+        XCTAssertTrue(log.contains("elapsedMs"))
+        XCTAssertTrue(log.contains("analysis_timing"))
+    }
+
+    func testRestoredQueueChecksForAcceptedLegacyUploadWithoutMarker() async throws {
+        let (root, _, host) = try setup(exists: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try queue(root, capture: true)
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [MockServerProtocol.self]
+        let restored = ModalDelivery(root: root,
+            settings: ModalServerSettings(baseURL: URL(string: "https://" + host)!, apiKey: "test-only-key"),
+            session: URLSession(configuration: config))
+        try await restored.flush()
+        let requests = MockServerProtocol.state.recorded(host)
+        XCTAssertTrue(requests.contains { $0.url?.path == "/event/" + id })
+        XCTAssertFalse(requests.contains { $0.httpMethod == "POST" })
+        let status = try await restored.snapshot()
+        XCTAssertEqual(status.delivered, 1)
+    }
+
+    func testKeepAliveReusesSessionAndThrottlesNormalIdlePings() async throws {
+        let (root, service, host) = try setup()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let connected = await service.verifyConnection()
+        XCTAssertTrue(connected)
+        await service.keepConnectionWarm(ifIdleFor: 0)
+        await service.keepConnectionWarm()
+        let requests = MockServerProtocol.state.recorded(host)
+        XCTAssertEqual(requests.filter { $0.url?.path == "/health" }.count, 2)
+        XCTAssertFalse(requests.contains { $0.httpMethod == "POST" })
+        let log = try String(contentsOf: root.appendingPathComponent("network.jsonl"), encoding: .utf8)
+        XCTAssertTrue(log.contains("keep_alive"))
+    }
+
+    func testVersionedFixedAudioSurvivesRelaunchAndRefreshesWhenVoiceChanges() async throws {
+        let (root, first, host) = try setup()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let oldRevision = String(repeating: "a", count: 64)
+        let newRevision = String(repeating: "b", count: 64)
+        func respond(_ revision: String, audio: String) {
+            MockServerProtocol.state.set(host, headers: ["X-Check-In-Protocol": "2", "X-Check-In-Audio-Revision": revision]) { request in
+                if request.url!.path == "/health" { return (200, "{\"ok\":true,\"voice_audio_revision\":\"\(revision)\"}") }
+                if request.url!.path.hasPrefix("/event/") { return (404, "{\"detail\":\"unknown event\"}") }
+                return (200, audio)
+            }
+        }
+        func relaunched() -> ModalDelivery {
+            let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [MockServerProtocol.self]
+            return ModalDelivery(root: root, settings: ModalServerSettings(baseURL: URL(string: "https://" + host)!, apiKey: "test-only-key"), session: URLSession(configuration: config))
+        }
+        respond(oldRevision, audio: "old-voice-fixture")
+        _ = await first.verifyConnection()
+        let original = try await first.checkInPrompt(language: "en", kind: "contact")
+        let restarted = relaunched()
+        _ = await restarted.verifyConnection()
+        let before = MockServerProtocol.state.recorded(host).filter { $0.url!.path == "/check-in/prompt" }.count
+        let cached = try await restarted.checkInPrompt(language: "en", kind: "contact")
+        XCTAssertEqual(cached, original)
+        XCTAssertEqual(MockServerProtocol.state.recorded(host).filter { $0.url!.path == "/check-in/prompt" }.count, before)
+        respond(newRevision, audio: "new-voice-fixture")
+        _ = await restarted.verifyConnection()
+        let refreshed = try await restarted.checkInPrompt(language: "en", kind: "contact")
+        XCTAssertNotEqual(refreshed, cached)
+        XCTAssertEqual(MockServerProtocol.state.recorded(host).filter { $0.url!.path == "/check-in/prompt" }.count, 1)
+    }
+
+    func testConcurrentFixedPromptRequestsShareOneDownload() async throws {
+        let (root, service, host) = try setup()
+        defer { try? FileManager.default.removeItem(at: root) }
+        MockServerProtocol.state.set(host, headers: ["X-Check-In-Protocol": "2"]) { _ in (200, "shared-audio-fixture") }
+        async let first = service.checkInPrompt(language: "en", kind: "call")
+        async let second = service.checkInPrompt(language: "en", kind: "call")
+        let values = try await (first, second)
+        XCTAssertEqual(values.0, values.1)
+        XCTAssertEqual(MockServerProtocol.state.recorded(host).count, 1)
     }
 
     func testCompleteCaptureMovesOnlyAfterAcceptedResponse() async throws {
@@ -295,6 +503,7 @@ final class ModalTransportTests: XCTestCase {
     func testExistingServerEventRecoversLostAcknowledgementWithoutDuplicatePost() async throws {
         let (root, service, host) = try setup(exists: true); defer { try? FileManager.default.removeItem(at: root) }
         try queue(root, capture: true)
+        try Data("{}".utf8).write(to: root.appendingPathComponent("captures/" + id + "/upload-attempt.json"))
         try await service.flush()
         let status = try await service.snapshot()
         XCTAssertEqual(status.delivered, 1)
@@ -352,7 +561,8 @@ final class ModalTransportTests: XCTestCase {
         try Data("not-json".utf8).write(to: directory.appendingPathComponent("capture.json"))
         try await service.flush()
         let status = try await service.snapshot()
-        XCTAssertEqual(status.delivered, 1); XCTAssertEqual(status.pending, 1)
+        XCTAssertEqual(status.delivered, 1); XCTAssertEqual(status.pending, 0)
+        XCTAssertEqual(status.blockedCaptures, 1)
     }
 
     func testTLSFailureRetainsCaptureAndRecordsPhaseWithoutCredentials() async throws {

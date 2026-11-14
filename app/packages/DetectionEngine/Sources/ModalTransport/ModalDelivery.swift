@@ -13,6 +13,8 @@ public struct ModalServerSettings: Sendable {
 
 public struct DeliveryStatus: Sendable {
     public var pending = 0
+    public var blockedCaptures = 0
+    public var captureQueueMessage = ""
     public var delivered = 0
     public var authenticated = false
     public var message = "Server setup pending"
@@ -107,21 +109,30 @@ public actor ModalDelivery {
     private let settings: ModalServerSettings?
     private let session: URLSession
     private let networkLog: NetworkLog
+    private var lastNetworkActivity = Date.distantPast
+    private var warmingConnection = false
+    private let restoredEventIDs: Set<String>
     private var sending = false
     private var authenticated = false
     private var message: String
+    private var blockedCaptureIDs: Set<String> = []
+    private var captureQueueMessage = ""
     private var nextAttempt: [String: Date] = [:]
     private var checkInReply: CheckInReply?
     private var checkInMessage = ""
     private var sendingCheckIn = false
     private var checkInRetryAfter: [String: Date] = [:]
     private var questionAudio: [String: Data] = [:]
+    private var audioRevision: String?
+    private var questionLoads: [String: Task<Data, Error>] = [:]
 
     public init(root: URL, settings: ModalServerSettings?, configurationMessage: String = "Server setup pending", session: URLSession? = nil) {
         let events = AsyncStream<ServerAssessment>.makeStream()
         assessments = events.stream; assessmentContinuation = events.continuation
         self.root = root; self.settings = settings; self.message = configurationMessage
         networkLog = NetworkLog(root: root)
+        let restored = (try? FileManager.default.contentsOfDirectory(at: root.appendingPathComponent("outbox"), includingPropertiesForKeys: nil)) ?? []
+        restoredEventIDs = Set(restored.filter { $0.pathExtension == "json" }.map { $0.deletingPathExtension().lastPathComponent })
         if let session { self.session = session }
         else {
             let configuration = URLSessionConfiguration.ephemeral
@@ -134,8 +145,12 @@ public actor ModalDelivery {
 
     public func snapshot() throws -> DeliveryStatus {
         var result = DeliveryStatus()
-        result.pending = try files("outbox").count; result.delivered = try files("delivered").count
+        let queuedIDs = Set(try files("outbox").map { $0.deletingPathExtension().lastPathComponent })
+        result.blockedCaptures = queuedIDs.intersection(blockedCaptureIDs).count
+        result.pending = queuedIDs.count - result.blockedCaptures
+        result.delivered = try files("delivered").count
         result.authenticated = authenticated; result.message = message
+        result.captureQueueMessage = captureQueueMessage
         result.checkInReply = checkInReply; result.checkInMessage = checkInMessage
         return result
     }
@@ -156,6 +171,7 @@ public actor ModalDelivery {
             guard status == 404, let detail = try JSONSerialization.jsonObject(with: data) as? [String: String], detail["detail"] == "unknown event" else {
                 throw DeliveryError.invalidResponse
             }
+            acceptAudioRevision(body["voice_audio_revision"] as? String)
             authenticated = true; message = "Connected · ready for fall captures"
         } catch DeliveryError.unauthorized {
             authenticated = false; message = "Server rejected API key"
@@ -170,44 +186,38 @@ public actor ModalDelivery {
     public func flush() async throws {
         guard !sending, let settings else { return }
         sending = true; defer { sending = false }
+        let ready = try refreshCaptureQueue()
         if !authenticated, !(await verifyConnection()) { return }
+        // A spoken follow-up should not wait behind an older image upload.
+        await flushCheckIns()
         let completed = root.appendingPathComponent("delivered", isDirectory: true)
         let responses = root.appendingPathComponent("server-responses", isDirectory: true)
         try FileManager.default.createDirectory(at: completed, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: responses, withIntermediateDirectories: true)
         var attempted = 0
-        for file in try files("outbox") {
+        for (file, manifest) in ready {
             guard attempted < 8 else { break }
             let id = file.deletingPathExtension().lastPathComponent
-            guard ModalRequest.validID(id) else { message = "Invalid queued event ID"; continue }
             if let next = nextAttempt[id], next > Date() { continue }
             let capture = root.appendingPathComponent("captures", isDirectory: true).appendingPathComponent(id, isDirectory: true)
-            let manifestFile = capture.appendingPathComponent("capture.json")
-            guard FileManager.default.fileExists(atPath: manifestFile.path) else {
-                message = "Connected · waiting for camera frames"; continue
-            }
-            guard let manifest = try? JSONDecoder().decode(CaptureManifest.self, from: Data(contentsOf: manifestFile)) else {
-                message = "Invalid capture manifest · event stays queued"; continue
-            }
-            guard manifest.eventId == id, manifest.complete, !manifest.frames.isEmpty,
-                  manifest.durationSeconds.isFinite, manifest.durationSeconds > 0 else {
-                message = "Capture incomplete · event stays queued"; continue
-            }
-            guard manifest.frames.count <= ModalRequest.maximumFrames else {
-                message = "Archived capture exceeds seven frames · retained locally"; continue
-            }
             attempted += 1
             do {
-                // Recover a previous accepted request after a lost response.
-                var lookup = URLRequest(url: settings.baseURL.appendingPathComponent("event/" + id))
-                lookup.setValue(settings.apiKey, forHTTPHeaderField: "x-api-key")
-                let (existing, lookupResponse) = try await perform(lookup, phase: "event_lookup", eventID: id)
-                let lookupStatus = (lookupResponse as? HTTPURLResponse)?.statusCode ?? 0
+                let attemptFile = capture.appendingPathComponent("upload-attempt.json")
+                var recovered: Data?
+                // Fresh captures POST directly. Persisted attempts and restored
+                // notices need a lookup to recover a potentially lost response.
+                if FileManager.default.fileExists(atPath: attemptFile.path) || restoredEventIDs.contains(id) {
+                    var lookup = URLRequest(url: settings.baseURL.appendingPathComponent("event/" + id))
+                    lookup.setValue(settings.apiKey, forHTTPHeaderField: "x-api-key")
+                    let (existing, response) = try await perform(lookup, phase: "event_lookup", eventID: id)
+                    let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+                    if code == 200 { recovered = existing }
+                    else if code == 401 || code == 403 { throw DeliveryError.unauthorized }
+                    else if code != 404 { throw DeliveryError.server(code) }
+                }
                 let responseData: Data
-                if lookupStatus == 200 { responseData = existing }
+                if let recovered { responseData = recovered }
                 else {
-                    if lookupStatus == 401 || lookupStatus == 403 { throw DeliveryError.unauthorized }
-                    guard lookupStatus == 404 else { throw DeliveryError.server(lookupStatus) }
                     let frames = try manifest.frames.map { name -> (String, Data) in
                         guard name.hasSuffix(".jpg"), !name.contains("/"), !name.contains("..") else { throw DeliveryError.invalidRequest }
                         return (name, try Data(contentsOf: capture.appendingPathComponent(name)))
@@ -216,6 +226,9 @@ public actor ModalDelivery {
                                                           durationSeconds: manifest.durationSeconds)
                     networkLog.record("frame_upload", fields: ["eventID": id, "frameCount": String(frames.count),
                         "durationSeconds": String(manifest.durationSeconds), "bodyBytes": String(request.httpBody?.count ?? 0)])
+                    // Record before sending so a restart never blindly reposts
+                    // a request that may already have been accepted.
+                    try Data("{}".utf8).write(to: attemptFile, options: .atomic)
                     let (data, response) = try await perform(request, phase: "analyze", eventID: id)
                     let code = (response as? HTTPURLResponse)?.statusCode ?? 0
                     if code == 401 || code == 403 { throw DeliveryError.unauthorized }
@@ -236,6 +249,12 @@ public actor ModalDelivery {
                 nextAttempt[id] = nil
                 message = assessment.fallDetected == true ? "Fall confirmed by server" :
                     (assessment.fallDetected == false ? "No fall · monitoring continues" : "Analysis unavailable · monitoring continues")
+                var timing = ["eventID": id, "recoveredResponse": String(recovered != nil)]
+                for key in ["latency_queue_and_lookup_ms", "latency_preprocess_ms", "latency_model_ms", "latency_store_ms", "latency_server_ms", "processing_ms"] {
+                    if let value = response[key] as? NSNumber { timing[key] = value.stringValue }
+                }
+                if let version = response["prompt_version"] as? String { timing["promptVersion"] = version }
+                networkLog.record("analysis_timing", fields: timing)
                 assessmentContinuation.yield(assessment)
             } catch DeliveryError.unauthorized {
                 authenticated = false; message = "Server rejected API key · event stays queued"; return
@@ -252,16 +271,143 @@ public actor ModalDelivery {
                 message = "Upload unavailable · event stays queued"; nextAttempt[id] = Date().addingTimeInterval(30)
             }
         }
-        await flushCheckIns()
         saveConnectionStatus()
         await networkLog.drain()
     }
 
+    /// Best effort: iOS or the server can still close idle sockets. The same
+    /// URLSession is reused, and metrics report whether a connection was reused.
+    public func keepConnectionWarm(ifIdleFor seconds: TimeInterval = 45) async {
+        guard let settings, authenticated, !sending, !sendingCheckIn, !warmingConnection,
+              Date().timeIntervalSince(lastNetworkActivity) >= seconds else { return }
+        warmingConnection = true; defer { warmingConnection = false }
+        var request = URLRequest(url: settings.baseURL.appendingPathComponent("health"))
+        request.timeoutInterval = 5
+        do {
+            let (data, response) = try await perform(request, phase: "keep_alive")
+            if (response as? HTTPURLResponse)?.statusCode == 200,
+               let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                acceptAudioRevision(body["voice_audio_revision"] as? String)
+            } else { networkLog.record("keep_alive_failed", fields: [:]) }
+        } catch { networkLog.record("keep_alive_failed", fields: [:]) }
+        await networkLog.drain()
+    }
+
+    /// Failed captures have nothing to upload. Keep their original evidence locally,
+    /// but exclude them from the upload count. Rescan so a repaired/late manifest
+    /// automatically becomes eligible without deleting or recreating the notice.
+    private func refreshCaptureQueue() throws -> [(URL, CaptureManifest)] {
+        let notices = try files("outbox")
+        var queued: [(URL, Date)] = notices.map { file in
+            let values = try? file.resourceValues(forKeys: [.contentModificationDateKey])
+            return (file, values?.contentModificationDate ?? Date.distantPast)
+        }
+        queued.sort { left, right in
+            if left.1 == right.1 { return left.0.lastPathComponent < right.0.lastPathComponent }
+            return left.1 > right.1
+        }
+        let previousBlocked = blockedCaptureIDs
+        blockedCaptureIDs = []
+        var issues: [String] = []
+        var ready: [(URL, CaptureManifest)] = []
+        for (file, modified) in queued {
+            let id = file.deletingPathExtension().lastPathComponent
+            func blocked(_ reason: String) {
+                blockedCaptureIDs.insert(id); issues.append(reason)
+                if !previousBlocked.contains(id) {
+                    networkLog.record("capture_blocked", fields: ["eventID": id, "reason": reason])
+                }
+            }
+            guard ModalRequest.validID(id) else { blocked("Invalid queued event ID"); continue }
+            let directory = root.appendingPathComponent("captures").appendingPathComponent(id)
+            let manifestFile = directory.appendingPathComponent("capture.json")
+            guard FileManager.default.fileExists(atPath: manifestFile.path) else {
+                if Date().timeIntervalSince(modified) > 120 { blocked("No frames saved · capture interrupted") }
+                else { issues.append("Waiting for camera frames") }
+                continue
+            }
+            guard let manifest = try? JSONDecoder().decode(CaptureManifest.self, from: Data(contentsOf: manifestFile)) else {
+                blocked("Invalid capture manifest"); continue
+            }
+            guard manifest.eventId == id, manifest.complete, !manifest.frames.isEmpty,
+                  manifest.durationSeconds.isFinite, manifest.durationSeconds > 0 else {
+                blocked("Incomplete capture"); continue
+            }
+            guard manifest.frames.count <= ModalRequest.maximumFrames else {
+                blocked("Archived capture exceeds seven frames"); continue
+            }
+            ready.append((file, manifest))
+        }
+        captureQueueMessage = Dictionary(grouping: issues, by: { $0 }).sorted { $0.key < $1.key }
+            .map { "\($0.value.count) × \($0.key)" }.joined(separator: " · ")
+        return ready
+    }
+
+    /// Explicit synthetic confirmation; normal captured events use /analyze.
+    public func confirmedFallTest() async throws -> ServerAssessment {
+        guard let settings else { throw DeliveryError.invalidRequest }
+        let id = "test-" + UUID().uuidString
+        var request = URLRequest(url: settings.baseURL.appendingPathComponent("test/confirmed-fall/" + id))
+        request.httpMethod = "POST"
+        request.setValue(settings.apiKey, forHTTPHeaderField: "x-api-key")
+        let (data, response) = try await perform(request, phase: "confirmed_fall_test", eventID: id)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if code == 401 || code == 403 { throw DeliveryError.unauthorized }
+        guard (200..<300).contains(code),
+              let row = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              row["test_mode"] as? Bool == true else { throw DeliveryError.invalidResponse }
+        let assessment = try ServerAssessment.parse(data, expectedEventId: id, triggeredAt: Date())
+        guard assessment.fallDetected == true else { throw DeliveryError.invalidResponse }
+        let responses = root.appendingPathComponent("server-responses")
+        try FileManager.default.createDirectory(at: responses, withIntermediateDirectories: true)
+        try data.write(to: responses.appendingPathComponent(id + ".json"), options: .atomic)
+        message = "TEST · simulated fall confirmed"
+        saveConnectionStatus()
+        await networkLog.drain()
+        return assessment
+    }
+
+    public func preloadCheckInPrompts(language: String) async throws {
+        if !authenticated, !(await verifyConnection()) { throw DeliveryError.invalidResponse }
+        for kind in ["check_in", "contact", "decline", "call", "email_submitted", "email_failed", "call_handoff"] {
+            try Task.checkCancellation()
+            _ = try await checkInPrompt(language: language, kind: kind)
+        }
+    }
+
+    private func acceptAudioRevision(_ revision: String?) {
+        let valid = revision.flatMap { value in
+            value.count == 64 && value.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) } ? value : nil
+        }
+        if valid != audioRevision { questionAudio.removeAll(); audioRevision = valid }
+    }
+
+    private func audioCacheFile(_ key: String) -> URL? {
+        guard let audioRevision else { return nil }
+        return root.appendingPathComponent("prompt-audio").appendingPathComponent(audioRevision).appendingPathComponent(key + ".mp3")
+    }
+
     public func checkInPrompt(language: String, kind: String = "check_in") async throws -> Data {
-        guard let settings, ["en", "it"].contains(language),
+        guard settings != nil, ["en", "it"].contains(language),
               ["check_in", "contact", "decline", "call", "email_submitted", "email_failed", "call_handoff"].contains(kind) else { throw DeliveryError.invalidRequest }
-        let cacheKey = language + "-" + kind
-        if let cached = questionAudio[cacheKey] { return cached }
+        let key = language + "-" + kind
+        if let cached = questionAudio[key] {
+            networkLog.record("prompt_cache_hit", fields: ["source": "memory", "kindName": kind]); return cached
+        }
+        if let file = audioCacheFile(key), let cached = try? Data(contentsOf: file), !cached.isEmpty, cached.count <= 2 * 1024 * 1024 {
+            questionAudio[key] = cached
+            networkLog.record("prompt_cache_hit", fields: ["source": "disk", "kindName": kind]); return cached
+        }
+        let loadKey = (audioRevision ?? "unversioned") + "-" + key
+        if let load = questionLoads[loadKey] { return try await load.value }
+        let load = Task { try await self.fetchCheckInPrompt(language: language, kind: kind, key: key) }
+        questionLoads[loadKey] = load
+        defer { questionLoads[loadKey] = nil }
+        return try await load.value
+    }
+
+    private func fetchCheckInPrompt(language: String, kind: String, key: String) async throws -> Data {
+        guard let settings else { throw DeliveryError.invalidRequest }
         var components = URLComponents(url: settings.baseURL.appendingPathComponent("check-in/prompt"), resolvingAgainstBaseURL: false)!
         components.queryItems = [.init(name: "language", value: language)]
         if kind != "check_in" { components.queryItems?.append(.init(name: "kind", value: kind)) }
@@ -273,7 +419,15 @@ public actor ModalDelivery {
               http.value(forHTTPHeaderField: "Content-Type")?.hasPrefix("audio/") == true,
               (kind == "check_in" || http.value(forHTTPHeaderField: "X-Check-In-Protocol") == "2"),
               !data.isEmpty, data.count <= 2 * 1024 * 1024 else { throw DeliveryError.invalidResponse }
-        questionAudio[cacheKey] = data
+        acceptAudioRevision(http.value(forHTTPHeaderField: "X-Check-In-Audio-Revision"))
+        questionAudio[key] = data
+        if let file = audioCacheFile(key) {
+            try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? data.write(to: file, options: .atomic)
+            #if os(iOS)
+            try? FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: file.path)
+            #endif
+        }
         return data
     }
 
@@ -339,16 +493,21 @@ public actor ModalDelivery {
 
     private func perform(_ request: URLRequest, phase: String, eventID: String = "") async throws -> (Data, URLResponse) {
         let id = UUID().uuidString
+        let started = DispatchTime.now().uptimeNanoseconds
+        lastNetworkActivity = Date()
+        defer { lastNetworkActivity = Date() }
         let context = ["requestID": id, "phase": phase, "eventId": eventID]
         networkLog.record("http_begin", fields: context)
         do {
             let response = try await session.data(for: request, delegate: NoRedirect(log: networkLog, requestID: id))
             var row = context; row["status"] = String((response.1 as? HTTPURLResponse)?.statusCode ?? 0)
+            row["elapsedMs"] = String(Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000)
             networkLog.record("http_end", fields: row)
             return response
         } catch {
             let underlying = error as NSError
             var row = context; row["errorDomain"] = underlying.domain; row["errorCode"] = String(underlying.code)
+            row["elapsedMs"] = String(Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000)
             if let nested = underlying.userInfo[NSUnderlyingErrorKey] as? NSError {
                 row["underlyingDomain"] = nested.domain; row["underlyingCode"] = String(nested.code)
             }
@@ -369,9 +528,43 @@ public actor ModalDelivery {
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             let status = try snapshot()
             let row: [String: Any] = ["authenticated": authenticated, "message": message,
-                "pending": status.pending, "delivered": status.delivered,
+                "pending": status.pending, "delivered": status.delivered, "blockedCaptures": status.blockedCaptures,
+                "captureQueueMessage": captureQueueMessage,
                 "checkedAtUTC": ISO8601DateFormatter().string(from: Date())]
             try JSONSerialization.data(withJSONObject: row).write(to: root.appendingPathComponent("server-status.json"), options: .atomic)
         } catch { /* Status export is diagnostic; outbox durability is independent. */ }
+    }
+}
+
+/// Explicit local test maintenance. Call only before creating the delivery actor
+/// or starting capture tasks; no upload or recording may be in flight.
+public enum ModalQueueMaintenance {
+    public struct Cleared: Codable, Sendable {
+        public let captureEvents: Int
+        public let checkInReplies: Int
+    }
+
+    public static func clearPending(root: URL) throws -> Cleared {
+        let manager = FileManager.default
+        func notices(_ directory: String) throws -> [URL] {
+            let path = root.appendingPathComponent(directory, isDirectory: true)
+            guard manager.fileExists(atPath: path.path) else { return [] }
+            return try manager.contentsOfDirectory(at: path, includingPropertiesForKeys: nil)
+                .filter { $0.pathExtension == "json" }
+        }
+        let captures = try notices("outbox")
+        let replies = try notices("check-in-outbox")
+        for file in captures {
+            let id = file.deletingPathExtension().lastPathComponent
+            // Never derive a path from an unvalidated queued ID or remove a
+            // capture that already belongs to the delivered history.
+            if ModalRequest.validID(id), !manager.fileExists(atPath: root.appendingPathComponent("delivered").appendingPathComponent(file.lastPathComponent).path) {
+                let directory = root.appendingPathComponent("captures").appendingPathComponent(id)
+                if manager.fileExists(atPath: directory.path) { try manager.removeItem(at: directory) }
+            }
+            try manager.removeItem(at: file)
+        }
+        for file in replies { try manager.removeItem(at: file) }
+        return Cleared(captureEvents: captures.count, checkInReplies: replies.count)
     }
 }

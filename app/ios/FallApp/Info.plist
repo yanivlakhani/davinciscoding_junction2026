@@ -39,6 +39,11 @@
 		<string>fallapp://</string>
 		<key>ClientToken</key>
 		<string>$(CLIENT_TOKEN)</string>
+		<key>Logging</key>
+		<dict>
+			<key>Level</key>
+			<string>$(MWDAT_LOG_LEVEL)</string>
+		</dict>
 		<key>MetaAppID</key>
 		<string>$(META_APP_ID)</string>
 		<key>TeamID</key>

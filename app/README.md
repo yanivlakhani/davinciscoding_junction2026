@@ -12,8 +12,8 @@ The app stops non-continuous capture before JPEG processing/upload. No MP4 or
 temporary movie is created. JPEGs and event metadata persist for upload retries.
 The glasses capture LED stays active while the camera is streaming.
 
-The phone sends one multipart `/analyze` request to Modal. The backend chooses
-usable/best frames, restores their chronological order and sends them together
+The phone sends one multipart `/analyze` request to Modal. The backend forwards
+every decodable frame, including dark frames, in chronological order together
 in one Claude request. No Claude key is stored on the phone.
 
 ## Layout
@@ -89,8 +89,28 @@ python3 app/tools/generate_project.py
 
 ## Phone diagnostics
 
+The **Live connection log** directly under Connect shows button actions, Meta
+callbacks, registration, device eligibility, session/motion state and the first
+sensor packet. **Copy connection diagnostics** includes the current snapshot and
+recent events. It omits callback URLs, credentials, audio and reply transcripts.
+The connection path retains one automatic selector for the controller lifetime;
+it does not replace selectors or unregister the app during a normal retry.
+
+Voice creates its audio engine only for an active check-in, logs activation and
+release, and deactivates only a session it activated. The snapshot reports the
+app's own voice audio status; it cannot identify which other app owns a route.
+SDK registration, Bluetooth audio pairing and a started data session are separate
+states. A paired device alone does not establish active sensor monitoring.
+
+Private `Documents/FallApp/connection-status.json` and `connection.jsonl` support
+terminal viewing and diagnostic export. The append log rotates after 1 MB with
+one previous log retained. Meta's detailed SDK logging is enabled for Debug
+builds and limited to errors in Release. Raw SDK logs remain private and may
+contain authorization information; they are not displayed by the connection viewer.
+
 ```sh
 xcrun devicectl list devices
+python3 app/tools/watch_connection_logs.py --device "YOUR_DEVICE_ID" --bundle "YOUR_BUNDLE_IDENTIFIER"
 python3 app/tools/watch_phone_logs.py --device "YOUR_DEVICE_ID" --bundle "YOUR_BUNDLE_IDENTIFIER"
 python3 app/tools/pull_phone_logs.py --device "YOUR_DEVICE_ID" --bundle "YOUR_BUNDLE_IDENTIFIER"
 ```
@@ -120,3 +140,37 @@ Full seven-frame glasses-to-model validation still requires a physical capture.
 
 Personal signing/configuration, credentials, recordings, session logs, historical
 assessment reports and build output are excluded from this application folder.
+
+### Capture and analysis status
+
+The Modal connection/result row is separate from **Capture issues**. **Pending upload**
+counts events still capturing or ready to send; **Capture failed** counts incomplete,
+invalid or oversized captures and notices with no manifest after two minutes. Their
+original files stay local; a late/repaired manifest automatically becomes eligible.
+Fresh ready captures take priority over an older upload backlog. Upload retries
+continue after Disconnect while consent remains enabled and iOS allows app execution;
+sensor monitoring and spoken questions remain stopped. Older capture issues do not replace the latest
+delivery result.
+A delivered event can still have unavailable visual analysis. For older server responses where every frame
+was rejected by image-quality checks, the app explains that rejection and keeps
+the verdict unknown; it does not count it as a negative fall result. Check the
+saved JPEGs, camera view and lighting before interpreting a controlled test.
+
+### Upload latency
+
+Fresh captures POST directly to `/analyze`. An atomic `upload-attempt.json` marker
+is written before sending; retries and notices restored at app startup still look
+up the event to recover lost responses. The backend serializes requests per event
+and returns an accepted event without rerunning vision or resetting its check-in.
+
+During monitoring, an idle health request runs after 45 seconds without network
+activity, using the existing URLSession. It is scheduled after queue work, with a
+five-second timeout. This is best effort: iOS and proxies can close idle sockets.
+The existing warm Modal container and reusable Claude HTTP client are retained.
+
+`network.jsonl` includes `elapsedMs` per HTTP request, existing DNS/TCP/TLS/send/wait
+metrics and an `analysis_timing` record per delivered capture. The latency assessor
+exports those as `analysis_timings` alongside `network_requests`. Server intervals
+use the server's monotonic clock; client intervals use the phone's monotonic clock.
+Do not subtract absolute timestamps across devices. New real captures are needed
+to quantify the latency change and assess the compact prompt against ground truth.

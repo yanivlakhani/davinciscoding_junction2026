@@ -41,14 +41,16 @@ and `vision.caduta`.
 
 ## Frame selection for `/analyze`
 
-Send 1-7 JPEG frames in chronological order. The optional multipart field
-`best_n` (1-7, default 7) selects up to N usable frames with the highest
-sharpness. Unusable frames are still rejected. Selected frames are sent to
-Claude in their original chronological order, preserving timestamps inferred
-from `duration_s` and the original frame positions.
+Send 1-7 JPEG frames in chronological order. Every decodable frame reaches Claude
+in one request, including dark, blurred or low-contrast frames. Image-quality
+measurements are diagnostic only; no sharpness ranking or quality rejection applies
+to `/analyze`. Faces are still blurred before forwarding.
 
-The response includes `best_n`, `n_frames`, `selected_frame_indices` (zero-based)
-and `selected_frame_times_s`. The iOS client accepts `bestN`, defaulting to 7.
+The legacy `best_n` field remains accepted (1-7) for compatibility and does not
+reduce the batch. `frame_policy=all_decodable`, `selected_frame_indices` and
+`selected_frame_times_s` report the actual forwarded frames and chronological times.
+Invalid image bytes cannot be forwarded. Provider failures or no decodable images
+produce an unknown verdict rather than a negative fall result.
 
 ## Confrontare modelli di visione
 
@@ -84,3 +86,34 @@ python -m unittest discover -s backend/tests -v
 
 These tests stub image/provider/Modal dependencies and do not contact a model,
 create production events or notify contacts. Missing `API_KEY` now fails closed.
+
+## Analysis latency and retries
+
+`/analyze` deduplicates by `event_id` under the same per-event lock as check-ins.
+Repeating an accepted event returns its stored result rather than rerunning Claude
+or overwriting a conversation. The current deployment uses one container for these
+locks; scaling beyond one requires a distributed claim.
+
+Responses and safe `analysis_timing` logs report queue/lookup, preprocessing, model,
+store and total handler milliseconds plus `prompt_version`. The store and total
+handler measurements are response/log-only because they are measured after the
+event write; recovered stored events retain preprocessing/model measurements.
+Handler timings exclude multipart reception/parsing before handler entry.
+The vision schema/model and seven-frame input remain the same; v4 shortens the
+prompt and requests a reason of at most twelve words while retaining conservative
+fall decisions. Validate sensitivity against labeled clips before interpreting
+prompt changes as an accuracy improvement.
+
+## Exact spoken replies
+
+`/event/{event_id}/check-in` applies the versioned `EXACT_REPLIES` allowlist to
+complete utterances before using Claude. The current question/stage determines
+the meaning. Simple exact replies skip model inference; unlisted, qualified or
+ambiguous replies retain the full Claude path. Negatively framed decline questions
+accept plain yes/no or explicit certainty; polite/ambiguous replies still use Claude.
+
+Responses and `check_in_timing` logs expose `interpretation_source`,
+`matcher_version` and `matched_rule`. Authentication, event confirmation, stage
+ordering, deduplicated sending and silence handling continue to use the same state
+machine. `/health` advertises `reply_matching_version`. The phone does not need
+a new build for this backend-only feature. See `../app/contracts/CHECK_IN.md`.

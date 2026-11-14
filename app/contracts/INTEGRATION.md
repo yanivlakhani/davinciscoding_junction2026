@@ -23,15 +23,16 @@ encoded. No MP4 is created. JPEG order follows presentation timestamps.
 | `event_id` | Stable local ID, reused across retries |
 | `duration_s` | `1` for new captures |
 | `imu_level` | `1`; no invented sensor-to-severity mapping |
-| `best_n` | Omitted; backend default is `7` |
+| `best_n` | Omitted; accepted for compatibility, does not limit forwarded frames |
 
 No location is collected/sent. An `Idempotency-Key` header carries the event ID;
-the current backend does not enforce atomic idempotency from that header.
+the backend deduplicates by `event_id` within its single-container deployment.
 
-The backend accepts 1–7 images, filters unusable imagery, selects up to `best_n`
-by sharpness, restores selected frames to input order and includes them in one
-interactive Claude Messages request. This is not the asynchronous Batch API.
-Default `best_n=7` forwards every usable image if all seven are usable.
+The backend accepts 1–7 images and forwards every decodable image, including dark
+or blurred frames, in input order in one interactive Claude Messages request.
+Quality measurements are diagnostic only. `frame_policy=all_decodable` identifies
+this behavior; legacy `best_n` does not reduce the batch. This is not the
+asynchronous Batch API.
 
 ## Response and recovery
 

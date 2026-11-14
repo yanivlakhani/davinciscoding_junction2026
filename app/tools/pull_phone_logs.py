@@ -13,7 +13,7 @@ from assess_capture_latency import assess
 DEVICE = None
 BUNDLE = 'org.local.fallapp.development'
 UUID = r'[A-Fa-f0-9-]{36}'
-ALLOWED = re.compile(r'(?:sessions/' + UUID + r'/(?:motion|ordered-motion|events|latency)\.jsonl|sessions/' + UUID + r'/(?:session|session-end|rule-configuration)\.json|camera-streams/' + UUID + r'/timeline\.jsonl|captures/' + UUID + r'-[0-9]+/(?:trigger|timing|buffer|capture|attempt-[0-9]+-error)\.json|(?:delivered|outbox|server-responses|check-ins|check-in-outbox|check-in-responses)/' + UUID + r'-[0-9]+(?:-(?:initial|contact|contact_retry|decline|decline_retry|call))?\.json|server-status\.json|network\.jsonl)\Z')
+ALLOWED = re.compile(r'(?:sessions/' + UUID + r'/(?:motion|ordered-motion|events|latency)\.jsonl|sessions/' + UUID + r'/(?:session|session-end|rule-configuration)\.json|camera-streams/' + UUID + r'/timeline\.jsonl|captures/' + UUID + r'-[0-9]+/(?:trigger|timing|buffer|capture|upload-attempt|attempt-[0-9]+-error)\.json|(?:delivered|outbox|server-responses|check-ins|check-in-outbox|check-in-responses)/' + UUID + r'-[0-9]+(?:-(?:initial|contact|contact_retry|decline|decline_retry|call))?\.json|(?:server-status|connection-status)\.json|(?:network|connection)\.jsonl)\Z')
 
 def run(args):
     return subprocess.run(args, check=True, capture_output=True, text=True)

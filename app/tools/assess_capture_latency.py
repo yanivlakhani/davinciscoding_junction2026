@@ -95,7 +95,10 @@ def assess(root):
             "attempt_failures": [read_json(p) for p in sorted(directory.glob("attempt-*-error.json"))],
         })
     requests = {}
+    analyses = []
     for row in read_lines(root / "network.jsonl"):
+        if row.get("kind") == "analysis_timing":
+            analyses.append(row)
         identifier = row.get("requestID")
         if not identifier:
             continue
@@ -110,11 +113,13 @@ def assess(root):
     for request in requests.values():
         request["duration_ms"] = difference(request, "end_ns", "start_ns")
     return {"sessions": sessions, "streams": streams, "captures": captures, "network_requests": list(requests.values()),
+            "analysis_timings": analyses,
             "limits": ["All computed differences use phone monotonic uptime only.",
                 "A buffered first saved frame may precede red; its negative offset is valid pre-roll, not negative latency.",
                 "SDK/OS upstream sampling and transport cannot be isolated without additional upstream timestamps.",
                 "An absent trace_end or session-end means the snapshot may be incomplete.",
-                "No upload duration or full-video server receipt is inferred from these files."]}
+                "Upload/TLS timings require URLSession metrics; absent measurements are not estimated.",
+                "Server intervals come from backend-reported durations; handler time excludes multipart reception/parsing."]}
 
 
 def main():

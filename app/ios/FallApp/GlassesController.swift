@@ -5,6 +5,7 @@ import MWDATMotion
 import MonitoringRuntime
 import ModalTransport
 import FallCaptureCore
+import CoreBluetooth
 
 @MainActor @Observable
 final class GlassesController {
@@ -16,6 +17,7 @@ final class GlassesController {
     private(set) var connected = false
     private(set) var busy = false
     private(set) var wantsMonitoring = false
+    private(set) var startingVoiceTest = false
     let preferences = MonitoringPreferences()
     let disconnectionAlerts = DisconnectionAlerts()
     var showMonitoringConsent = false
@@ -30,6 +32,8 @@ final class GlassesController {
     private let delivery: ModalDelivery
     let capture: FallCapture
     let checkIn: FallCheckIn
+    let diagnostics: ConnectionDiagnostics
+    private var lastDiagnosticRefreshNs: UInt64 = 0
     @ObservationIgnored private var session: DeviceSession?
     @ObservationIgnored private var motion: MWDATMotion.Motion?
     @ObservationIgnored private var runtime: MonitoringSession?
@@ -48,6 +52,7 @@ final class GlassesController {
         wearables = Wearables.shared
         selector = AutoDeviceSelector(wearables: Wearables.shared)
         root = URL.documentsDirectory.appendingPathComponent("FallApp", isDirectory: true)
+        diagnostics = ConnectionDiagnostics(root: root)
         let setup = ModalSettings.configured()
         delivery = ModalDelivery(root: root, settings: setup.settings, configurationMessage: setup.message)
         capture = FallCapture(root: root, delivery: delivery)
@@ -55,6 +60,8 @@ final class GlassesController {
         wantsMonitoring = preferences.monitoringRequested
         showMonitoringConsent = !preferences.agreed
         error = startupError
+        diagnostics.record("app_start", "Build \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown")")
+        checkIn.onAudioDiagnostic = { [weak self] event, detail in self?.diagnostics.record(event, detail) }
         checkIn.setCameraSuspended = { [weak self] value in try await self?.capture.suspendForCheckIn(value) }
         checkIn.onFinished = { [weak self] in
             Task { @MainActor [weak self] in
@@ -62,12 +69,18 @@ final class GlassesController {
                 self?.connectIfReady()
             }
         }
-        guard startupError == nil else { return }
+        guard startupError == nil else { diagnostics.record("startup_error", startupError ?? ""); return }
         tasks.append(Task { [weak self, wearables] in
-            for await _ in wearables.registrationStateStream() { self?.connectIfReady() }
+            for await state in wearables.registrationStateStream() {
+                self?.diagnostics.record("meta_registration", state.description)
+                self?.connectIfReady()
+            }
         })
         tasks.append(Task { [weak self, selector] in
-            for await _ in selector.activeDeviceStream() { self?.connectIfReady() }
+            for await device in selector.activeDeviceStream() {
+                self?.diagnostics.record("glasses_selection", device == nil ? "No eligible glasses" : "Glasses available")
+                self?.connectIfReady()
+            }
         })
         tasks.append(Task { [weak self] in
             while !Task.isCancelled {
@@ -77,6 +90,11 @@ final class GlassesController {
                     self.deliveryStatus = try await self.delivery.snapshot()
                     self.checkIn.update(self.deliveryStatus)
                     await self.capture.updateFeedback()
+                    let now = DispatchTime.now().uptimeNanoseconds
+                    if now >= self.lastDiagnosticRefreshNs, now - self.lastDiagnosticRefreshNs >= 1_000_000_000 {
+                        self.lastDiagnosticRefreshNs = now
+                        self.refreshDiagnosticSnapshot()
+                    }
                 } catch { await self.inputFailed(error.localizedDescription) }
                 try? await Task.sleep(for: .milliseconds(200))
             }
@@ -84,7 +102,10 @@ final class GlassesController {
         tasks.append(Task { [weak self, delivery] in
             while !Task.isCancelled {
                 do {
-                    if self?.preferences.agreed == true, self?.wantsMonitoring == true { try await delivery.flush() }
+                    if self?.preferences.agreed == true {
+                        try await delivery.flush()
+                        if self?.wantsMonitoring == true { await delivery.keepConnectionWarm() }
+                    }
                 }
                 catch { self?.error = error.localizedDescription }
                 try? await Task.sleep(for: .seconds(5))
@@ -107,21 +128,43 @@ final class GlassesController {
     }
 
     func connect() {
+        diagnostics.record("connect_tapped", "User requested connection")
         guard preferences.agreed else { showMonitoringConsent = true; return }
         preferences.requestMonitoring(true)
         wantsMonitoring = true
-        guard !busy else { return }
+        guard !busy else { diagnostics.record("connect_waiting", "Another connection action is in progress"); return }
+        error = nil
         if wearables.registrationState == .registered { connectIfReady(); return }
         busy = true
         Task { [weak self, wearables] in
-            do { try await wearables.startRegistration() }
-            catch { self?.error = error.localizedDescription }
+            do {
+                self?.diagnostics.record("meta_authorization_start", "Opening Meta AI for app registration")
+                try await wearables.startRegistration()
+            }
+            catch { self?.error = error.localizedDescription; self?.diagnostics.record("meta_authorization_error", error.localizedDescription) }
             self?.busy = false
             self?.connectIfReady()
         }
     }
 
+    func testConfirmedFall() async {
+        guard preferences.agreed, connected, checkIn.enabled, !checkIn.busy,
+              !capture.busy, !startingVoiceTest else { return }
+        startingVoiceTest = true; defer { startingVoiceTest = false }
+        let name = session?.device?.name ?? ""
+        diagnostics.record("voice_test_start", "Explicit simulated confirmation; normal vision unchanged")
+        do {
+            let assessment = try await delivery.confirmedFallTest()
+            guard connected, wantsMonitoring else { return }
+            await checkIn.handle(assessment, glassesName: name)
+        } catch {
+            self.error = "Voice test unavailable · \(error.localizedDescription)"
+            diagnostics.record("voice_test_error", "Could not create confirmed test event")
+        }
+    }
+
     func disconnect() {
+        diagnostics.record("disconnect_tapped", "User stopped monitoring")
         checkIn.stop()
         monitoringContexts.removeAll()
         preferences.requestMonitoring(false)
@@ -144,11 +187,17 @@ final class GlassesController {
 
     func handleURL(_ url: URL) async {
         guard URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.contains(where: { $0.name == "metaWearablesAction" }) == true else { return }
-        do { _ = try await wearables.handleUrl(url); connectIfReady() }
-        catch { self.error = error.localizedDescription }
+        diagnostics.record("meta_callback_received", "Callback received; URL contents omitted")
+        do {
+            let handled = try await wearables.handleUrl(url)
+            diagnostics.record("meta_callback_result", "handled=\(handled)")
+            connectIfReady()
+        }
+        catch { self.error = error.localizedDescription; diagnostics.record("meta_callback_error", error.localizedDescription) }
     }
 
     func backgroundChanged(_ backgrounded: Bool) async {
+        diagnostics.record(backgrounded ? "app_background" : "app_foreground")
         phoneBackgrounded = backgrounded
         // Keep an active motion session; do not inherit the camera sample's
         // deliberate stop-on-background behavior. Actual delivery is measured.
@@ -157,15 +206,22 @@ final class GlassesController {
         if !backgrounded {
             await disconnectionAlerts.refreshPermission()
             connectIfReady()
-            if preferences.agreed, wantsMonitoring { try? await delivery.flush() }
+            if preferences.agreed { try? await delivery.flush() }
         }
     }
 
     private func connectIfReady() {
-        guard preferences.agreed, wantsMonitoring, session == nil, !cleaningUp, !checkIn.busy else { return }
-        guard wearables.registrationState == .registered else { connection = "Connect with Meta AI"; return }
-        guard selector.activeDevice != nil else { connection = "Waiting for glasses"; return }
+        defer { refreshDiagnosticSnapshot() }
+        guard preferences.agreed, wantsMonitoring, session == nil, !cleaningUp else { return }
+        guard !checkIn.busy else { diagnostics.record("connect_waiting", "Voice check-in is active"); return }
+        guard wearables.registrationState == .registered else {
+            connection = "Connect with Meta AI"; diagnostics.record("connect_waiting", "Meta registration not complete"); return
+        }
+        guard selector.activeDevice != nil else {
+            connection = "Waiting for glasses"; diagnostics.record("connect_waiting", "Meta SDK reports no eligible glasses"); return
+        }
         do {
+            diagnostics.record("session_create", "Creating Meta device session")
             let created = try wearables.createSession(deviceSelector: selector)
             session = created; busy = true; connection = "Connecting"
             created.statePublisher.listen { [weak self, weak created] state in
@@ -175,15 +231,45 @@ final class GlassesController {
                 }
             }.store(in: sessionTokens)
             created.errorPublisher.listen { [weak self] error in
-                Task { @MainActor in self?.error = error.localizedDescription }
+                Task { @MainActor in
+                    self?.error = error.localizedDescription
+                    self?.diagnostics.record("session_error", error.localizedDescription)
+                }
             }.store(in: sessionTokens)
             try created.start()
-        } catch { self.error = error.localizedDescription; session = nil; busy = false; sessionTokens.clear() }
+        } catch {
+            self.error = error.localizedDescription; session = nil; busy = false; sessionTokens.clear()
+            diagnostics.record("session_start_error", error.localizedDescription)
+        }
+    }
+
+    private func refreshDiagnosticSnapshot() {
+        let devices = wearables.devices.compactMap { wearables.deviceForIdentifier($0) }
+        diagnostics.update([
+            "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
+            "registration": wearables.registrationState.description,
+            "connection": connection,
+            "session": session?.state.description ?? "none",
+            "selectorAvailable": String(selector.activeDevice != nil),
+            "bluetoothAuthorization": String(describing: CBManager.authorization),
+            "devices": devices.map { "\($0.name): \($0.linkState), \($0.compatibility().displayString)" }.joined(separator: "; "),
+            "samples": String(status.received),
+            "motion": motionState,
+            "camera": capture.status,
+            "voiceBusy": String(checkIn.busy),
+            "appAudio": checkIn.audioDiagnostic,
+            "error": error ?? ""
+        ])
     }
 
     private func sessionChanged(_ state: DeviceSessionState) async {
+        diagnostics.record("session_state", state.description)
         connection = state.description
         connected = state == .started
+        if state == .started {
+            if error != nil { diagnostics.record("connection_recovered", "Previous connection error cleared") }
+            error = nil
+        }
         busy = state == .starting || state == .stopping
         if state == .started, monitoringHealthy { disconnectionAlerts.connected() }
         if wantsMonitoring, state == .paused || state == .stopped {
@@ -197,6 +283,7 @@ final class GlassesController {
     private func startMotion() async {
         guard let session, session.state == .started, !startingMotion else { return }
         startingMotion = true; defer { startingMotion = false }
+        diagnostics.record("motion_start", "Attaching glasses motion at 30 Hz")
         do {
             monitoringHealthy = true
             let runtime = try MonitoringSession(root: root, cameraEnabled: AppConfig.automaticFallVideoEnabled && cameraPolicy != .disabled,
@@ -243,12 +330,13 @@ final class GlassesController {
             }
             motion = added
             added.statePublisher.listen { [weak self] state in
-                Task { @MainActor in self?.motionState = state.description }
+                Task { @MainActor in self?.motionState = state.description; self?.diagnostics.record("motion_state", state.description) }
             }.store(in: motionTokens)
             added.errorPublisher.listen { [weak self, weak added] error in
                 Task { @MainActor in
                     guard let self, let added, self.motion === added else { return }
                     self.error = error.localizedDescription; self.motionState = "Motion unavailable"
+                    self.diagnostics.record("motion_error", error.localizedDescription)
                     self.disconnectionAlerts.interrupted("Sensor data is unavailable.")
                 }
             }.store(in: motionTokens)
@@ -268,9 +356,14 @@ final class GlassesController {
             }
             sampleTask = Task.detached(priority: .userInitiated) { [weak self] in
                 defer { inbox.finish() }
+                var loggedFirstPacket = false
                 for await sample in samples {
                     guard !Task.isCancelled else { break }
                     let receipt = DispatchTime.now().uptimeNanoseconds
+                    if !loggedFirstPacket {
+                        loggedFirstPacket = true
+                        Task { @MainActor [weak self] in self?.diagnostics.record("motion_first_packet", "Glasses are delivering sensor samples") }
+                    }
                     do {
                         let data = try Self.encode(sample, receipt: receipt)
                         guard inbox.offer(ReceivedMotionPacket(data: data, receiptUptimeNs: receipt)) else {
@@ -286,6 +379,7 @@ final class GlassesController {
             added.start()
         } catch {
             self.error = error.localizedDescription
+            diagnostics.record("motion_start_error", error.localizedDescription)
             try? await runtime?.stop(); runtime = nil
             motion?.stop(); motion = nil; motionTokens.clear()
             try? session.removeMotion()
@@ -293,6 +387,7 @@ final class GlassesController {
     }
 
     private func inputFailed(_ message: String) async {
+        diagnostics.record("monitoring_input_error", message)
         guard monitoringHealthy else { return }
         monitoringHealthy = false
         if wantsMonitoring { disconnectionAlerts.interrupted("Monitoring stopped because of an input or storage error.") }
@@ -307,6 +402,7 @@ final class GlassesController {
     private func cleanup() async {
         guard !cleaningUp else { return }
         cleaningUp = true; defer { cleaningUp = false }
+        diagnostics.record("session_cleanup", "Releasing camera and motion resources")
         connected = false
         motion?.stop(); sampleTask?.cancel(); await sampleTask?.value; sampleTask = nil
         motionInbox?.finish()

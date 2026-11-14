@@ -28,6 +28,15 @@ class EmailAlertTests(unittest.TestCase):
             "event_id": "event-1", "stage": stage, "outcome": "response" if transcript is not None else "no_response",
             "transcript": transcript, "language": "en", **extra})
 
+    def test_simulated_fall_email_has_visible_test_label(self):
+        self.configure()
+        self.events["event-1"]["test_mode"] = True
+        self.turn()
+        self.turn("contact", "Yes, please email")
+        message = self.smtp.return_value.send_message.call_args.args[0]
+        self.assertTrue(message["Subject"].startswith("[TEST] "))
+        self.assertIn("[TEST]", message.get_content())
+
     def test_injury_email_yes_then_call_no_sends_exactly_one_email(self):
         self.configure()
         self.assertEqual(self.turn().json()["next_action"], "ask_contact")

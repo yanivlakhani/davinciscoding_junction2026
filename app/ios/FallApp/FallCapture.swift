@@ -268,7 +268,7 @@ final class FallCapture {
                 try JSONEncoder().encode(manifest).write(to: directory.appendingPathComponent("capture.json"), options: .atomic)
             }.value
             status = cameraStopFailed ? "Frames saved · camera stop unconfirmed · reconnect glasses"
-                : "Captured 1 s · \(result.frames.count) frames queued · \(cameraActive ? "camera active" : "camera off")"
+                : "Captured 1 s · \(result.frames.count) frames ready · \(cameraActive ? "camera active" : "camera off")"
             candidateActive = false
             Task { [delivery] in try? await delivery.flush() }
         } catch {

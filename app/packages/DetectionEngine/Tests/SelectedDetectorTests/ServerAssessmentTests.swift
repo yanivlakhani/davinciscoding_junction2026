@@ -25,6 +25,22 @@ final class ServerAssessmentTests: XCTestCase {
         XCTAssertNil(try parse(["fall_detected": false, "vision_error": "timeout"]).fallDetected)
         XCTAssertNil(try parse(["vision": ["caduta": "SI"], "vision_error": "timeout"]).fallDetected)
     }
+    func testQualityRejectionExplainsUnknownAndCannotBecomeNegative() throws {
+        let result = try parse(["status": "analysis_unavailable", "fall_detected": false,
+            "vision_error": NSNull(), "quality": [["usable": false], ["usable": false]]])
+        XCTAssertNil(result.fallDetected)
+        XCTAssertTrue(result.reason.contains("All 2 frames rejected"))
+        XCTAssertNil(try parse(["status": "analysis_unavailable", "fall_detected": false]).fallDetected)
+        XCTAssertEqual(try parse(["fall_detected": false, "quality": [["usable": true]]]).fallDetected, false)
+    }
+    func testDarkFramesAnalyzedByClaudeKeepItsVerdict() throws {
+        for fall in [true, false] {
+            let result = try parse(["fall_detected": fall, "vision": ["usable_frames": 7, "reason": "Model assessment"],
+                "quality": Array(repeating: ["usable": false], count: 7)])
+            XCTAssertEqual(result.fallDetected, fall)
+            XCTAssertEqual(result.reason, "Model assessment")
+        }
+    }
     func testMismatchedEventCannotTriggerAnotherPersonsCheckIn() throws {
         let data = Data("{\"event_id\":\"other\",\"vision\":{\"caduta\":\"SI\"}}".utf8)
         XCTAssertThrowsError(try ServerAssessment.parse(data, expectedEventId: "test-1"))

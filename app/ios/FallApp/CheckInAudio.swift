@@ -10,8 +10,10 @@ enum CheckInAudioError: LocalizedError {
 /// Bounded HFP prompt/listen session, separate from DAT camera and sensor tasks.
 @MainActor
 final class CheckInAudio: NSObject, AVAudioPlayerDelegate {
-    private let audio = AVAudioSession.sharedInstance()
-    private let engine = AVAudioEngine()
+    private var audio: AVAudioSession?
+    private var engine: AVAudioEngine?
+    private var sessionActive = false
+    var onDiagnostic: ((String, String) -> Void)?
     private let input = SpeechInput()
     private var player: AVAudioPlayer?
     private var playback: CheckedContinuation<Void, Error>?
@@ -30,6 +32,11 @@ final class CheckInAudio: NSObject, AVAudioPlayerDelegate {
         AVAudioApplication.shared.recordPermission == .granted && SFSpeechRecognizer.authorizationStatus() == .authorized
     }
     var partialTranscript: String? { lastText.isEmpty ? nil : lastText }
+    var diagnosticStatus: String {
+        guard let audio else { return "Inactive · no voice audio session is open" }
+        let outputs = audio.currentRoute.outputs.map { "\($0.portName) (\($0.portType.rawValue))" }.joined(separator: ", ")
+        return "Voice active=\(sessionActive) · microphone running=\(engine?.isRunning == true) · output=\(outputs)"
+    }
     func clearTranscript() { lastText = "" }
 
     func requestPermissions() async -> Bool {
@@ -45,10 +52,16 @@ final class CheckInAudio: NSObject, AVAudioPlayerDelegate {
 
     func prepare(glassesName: String) async throws {
         guard permitted else { throw CheckInAudioError.unavailable("Enable microphone and speech recognition before a live test") }
+        let audio = AVAudioSession.sharedInstance()
+        let engine = AVAudioEngine()
+        self.audio = audio; self.engine = engine
+        onDiagnostic?("voice_audio_prepare", "Preparing glasses speaker/microphone after a confirmed fall")
         let bluetooth: AVAudioSession.CategoryOptions
         bluetooth = .allowBluetoothHFP
         try audio.setCategory(.playAndRecord, mode: .default, options: [bluetooth])
         try audio.setActive(true)
+        sessionActive = true
+        onDiagnostic?("voice_audio_activated", diagnosticStatus)
         let candidates = audio.availableInputs?.filter { $0.portType == .bluetoothHFP } ?? []
         let name = Self.normalize(glassesName)
         let matches = candidates.filter {
@@ -74,6 +87,7 @@ final class CheckInAudio: NSObject, AVAudioPlayerDelegate {
             try await Task.sleep(for: .milliseconds(50))
         }
         guard routeReady else { stop(); throw CheckInAudioError.unavailable("Glasses speaker/microphone route did not become ready") }
+        onDiagnostic?("voice_audio_ready", diagnosticStatus)
         routeToken = NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification,
             object: audio, queue: .main) { @Sendable [weak self] _ in
                 Task { @MainActor in
@@ -89,13 +103,14 @@ final class CheckInAudio: NSObject, AVAudioPlayerDelegate {
     }
 
     func play(_ data: Data) async throws {
-        guard routeReady, engine.isRunning else { throw CheckInAudioError.unavailable("Glasses audio route unavailable") }
+        guard routeReady, engine?.isRunning == true else { throw CheckInAudioError.unavailable("Glasses audio route unavailable") }
         let value = try AVAudioPlayer(data: data)
         player = value; value.delegate = self
         guard value.duration > 0, value.duration <= 15 else { throw CheckInAudioError.unavailable("Invalid check-in question audio") }
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 playback = continuation
+                onDiagnostic?("voice_playback_start", "phoneUptimeNs=\(DispatchTime.now().uptimeNanoseconds) · durationSeconds=\(value.duration)")
                 guard value.play() else { finishPlayback(.failure(CheckInAudioError.unavailable("Cannot play question"))); return }
                 timeout = Task { [weak self] in
                     do { try await Task.sleep(for: .seconds(value.duration + 2)) } catch { return }
@@ -106,14 +121,15 @@ final class CheckInAudio: NSObject, AVAudioPlayerDelegate {
         } onCancel: { Task { @MainActor [weak self] in self?.stop() } }
     }
 
-    func listen(language: String, seconds: Double) async throws -> String? {
-        guard routeReady, engine.isRunning,
+    func listen(language: String, seconds: Double, endPauseSeconds: Double = 2.5) async throws -> String? {
+        guard routeReady, engine?.isRunning == true,
               let recognizer = SFSpeechRecognizer(locale: Locale(identifier: language == "it" ? "it-IT" : "en-US")),
               recognizer.isAvailable else { throw CheckInAudioError.unavailable("Speech recognition unavailable") }
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
         if recognizer.supportsOnDeviceRecognition { request.requiresOnDeviceRecognition = true }
         lastText = ""
+        onDiagnostic?("voice_listen_start", "phoneUptimeNs=\(DispatchTime.now().uptimeNanoseconds) · endPauseSeconds=\(endPauseSeconds)")
         let listenStarted = ContinuousClock.now
         let id = UUID(); recognitionID = id
         return try await withTaskCancellationHandler {
@@ -141,14 +157,14 @@ final class CheckInAudio: NSObject, AVAudioPlayerDelegate {
                                 self.lastText = text
                                 self.silence?.cancel()
                                 self.silence = Task { [weak self] in
-                                    do { try await Task.sleep(for: .milliseconds(2500)) } catch { return }
+                                    do { try await Task.sleep(for: .seconds(endPauseSeconds)) } catch { return }
                                     guard self?.recognitionID == id else { return }
                                     self?.finishListening(.success(self?.lastText))
                                 }
                             }
                             if final { self.finishListening(.success(text)); return }
                         }
-                        if noSpeech, self.lastText.isEmpty, self.routeReady, self.engine.isRunning, self.input.capturedFrames > 0 {
+                        if noSpeech, self.lastText.isEmpty, self.routeReady, self.engine?.isRunning == true, self.input.capturedFrames > 0 {
                             guard ContinuousClock.now - listenStarted >= .seconds(seconds) else {
                                 self.finishListening(.failure(CheckInAudioError.unavailable("Speech recognition ended before the full reply window"))); return
                             }
@@ -161,7 +177,7 @@ final class CheckInAudio: NSObject, AVAudioPlayerDelegate {
                 timeout = Task { [weak self] in
                     do { try await Task.sleep(for: .seconds(seconds)) } catch { return }
                     guard let self, self.recognitionID == id else { return }
-                    guard self.routeReady, self.engine.isRunning, self.input.capturedFrames > 0 else {
+                    guard self.routeReady, self.engine?.isRunning == true, self.input.capturedFrames > 0 else {
                         self.finishListening(.failure(CheckInAudioError.unavailable("Microphone delivered no audio or stopped before reply deadline"))); return
                     }
                     self.finishListening(.success(self.lastText.isEmpty ? nil : self.lastText))
@@ -174,15 +190,20 @@ final class CheckInAudio: NSObject, AVAudioPlayerDelegate {
         finishPlayback(.failure(CancellationError()))
         finishListening(.failure(CancellationError()))
         player?.stop(); player = nil
-        if tapInstalled { engine.inputNode.removeTap(onBus: 0); tapInstalled = false }
-        engine.stop(); inputUID = nil
+        if tapInstalled { engine?.inputNode.removeTap(onBus: 0); tapInstalled = false }
+        engine?.stop(); engine = nil; inputUID = nil
         if let routeToken { NotificationCenter.default.removeObserver(routeToken) }; routeToken = nil
         if let interruptionToken { NotificationCenter.default.removeObserver(interruptionToken) }; interruptionToken = nil
-        try? audio.setActive(false, options: .notifyOthersOnDeactivation)
+        if sessionActive {
+            try? audio?.setActive(false, options: .notifyOthersOnDeactivation)
+            sessionActive = false
+            onDiagnostic?("voice_audio_released", "Voice microphone stopped; app audio session deactivated")
+        }
+        audio = nil
     }
 
     private var routeReady: Bool {
-        guard let inputUID else { return false }
+        guard let inputUID, let audio else { return false }
         return audio.currentRoute.inputs.contains { $0.uid == inputUID && $0.portType == .bluetoothHFP }
             && audio.currentRoute.outputs.contains { $0.portType == .bluetoothHFP }
     }
@@ -192,11 +213,15 @@ final class CheckInAudio: NSObject, AVAudioPlayerDelegate {
     }
     private func finishPlayback(_ result: Result<Void, Error>) {
         guard let continuation = playback else { return }
+        onDiagnostic?("voice_playback_end", "phoneUptimeNs=\(DispatchTime.now().uptimeNanoseconds)")
         playback = nil; timeout?.cancel(); timeout = nil
         continuation.resume(with: result)
     }
     private func finishListening(_ result: Result<String?, Error>) {
         guard let continuation = listener else { return }
+        let outcome: String
+        switch result { case .success(let text): outcome = text == nil ? "no_response" : "reply"; case .failure: outcome = "error" }
+        onDiagnostic?("voice_listen_end", "phoneUptimeNs=\(DispatchTime.now().uptimeNanoseconds) · outcome=\(outcome)")
         listener = nil; recognitionID = nil; input.set(nil)
         timeout?.cancel(); silence?.cancel(); timeout = nil; silence = nil
         recognition?.cancel(); recognition = nil

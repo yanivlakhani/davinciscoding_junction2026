@@ -148,10 +148,58 @@ class CheckInTests(unittest.TestCase):
         response = self.client.get("/check-in/prompt?language=en", headers=self.headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["content-type"], "audio/mpeg")
+        self.assertEqual(response.headers["X-Check-In-Audio-Revision"], self.backend.speech_audio_revision())
         self.assertEqual(self.client.get("/check-in/prompt?language=xx", headers=self.headers).status_code, 422)
         def failed(language): raise RuntimeError("Not configured")
         self.backend.check_in_audio = failed
         self.assertEqual(self.client.get("/check-in/prompt", headers=self.headers).status_code, 503)
+
+    def test_spoken_classification_reserves_short_budget_for_structured_answer(self):
+        self.post()
+        initial = self.calls[-1]
+        self.assertEqual(initial["thinking"], {"type": "between_tools"})
+        self.assertEqual(initial["extra_body"]["output_config"]["effort"], "low")
+        self.assertEqual(initial["extra_body"]["output_config"]["format"]["schema"], self.backend.CHECK_IN_SCHEMA)
+        self.post(stage="contact", transcript="Yes, please email")
+        consent = self.calls[-1]
+        self.assertEqual(consent["thinking"], {"type": "between_tools"})
+        self.assertEqual(consent["extra_body"]["output_config"]["effort"], "low")
+        self.assertEqual(consent["max_tokens"], 200)
+
+    def test_audio_cache_revision_changes_with_voice_or_question(self):
+        first = self.backend.speech_audio_revision()
+        self.assertEqual(len(first), 64)
+        self.assertEqual(self.client.get("/health").json()["voice_audio_revision"], first)
+        with patch.dict(os.environ, {"ELEVENLABS_VOICE_ID": "different-voice"}):
+            self.assertNotEqual(self.backend.speech_audio_revision(), first)
+        self.backend.SPOKEN_PROMPTS["call"]["en"] += " Changed."
+        self.assertNotEqual(self.backend.speech_audio_revision(), first)
+
+    def test_missing_consent_text_stays_pending_and_never_escalates(self):
+        self.events["event-1"]["check_in_next_action"] = "ask_decline"
+        reply = SimpleNamespace(content=[], stop_reason="max_tokens", usage=SimpleNamespace(output_tokens=60))
+        self.backend._anthropic = lambda: SimpleNamespace(messages=SimpleNamespace(create=lambda **kwargs: reply))
+        response = self.post(stage="decline", transcript="Yes, I have thought about it and I am sure")
+        self.assertEqual(response.status_code, 503)
+        turn = self.events["event-1"]["check_in_turns"]["decline"]
+        self.assertEqual(turn["analysis_failure"]["error_type"], "ValueError")
+        self.assertNotIn("notification", self.events["event-1"])
+
+    def test_explicit_simulation_is_authenticated_positive_and_never_calls_vision(self):
+        path = "/test/confirmed-fall/test-00000000-0000-0000-0000-000000000001"
+        self.assertEqual(self.client.post(path).status_code, 401)
+        self.assertEqual(self.client.post("/test/confirmed-fall/event-1", headers=self.headers).status_code, 400)
+        response = self.client.post(path, headers=self.headers)
+        self.assertEqual(response.status_code, 200)
+        event = response.json()
+        self.assertTrue(event["test_mode"])
+        self.assertTrue(event["fall_detected"])
+        self.assertEqual(event["vision"]["caduta"], "SI")
+        self.assertEqual(self.calls, [])
+        self.assertNotIn("notification", event)
+        self.events[event["event_id"]]["status"] = "check_in_complete"
+        repeated = self.client.post(path, headers=self.headers).json()
+        self.assertEqual(repeated["status"], "check_in_complete")
 
     def test_seven_frames_still_reach_one_vision_request_in_order(self):
         response = self.client.post("/analyze", headers=self.headers,
@@ -163,9 +211,52 @@ class CheckInTests(unittest.TestCase):
         markers = [base64.b64decode(x["source"]["data"])[0] for x in content if x["type"] == "image"]
         self.assertEqual(markers, list(range(1, 8)))
 
+    def test_dark_blurred_frames_all_reach_claude_even_with_legacy_best_n(self):
+        self.backend.quality = lambda image: {"usable": False, "brightness": 0, "sharpness": 0, "contrast": 0}
+        response = self.client.post("/analyze", headers=self.headers,
+            data={"event_id": "dark-event", "duration_s": "1", "best_n": "1"},
+            files=[("frames", (f"{i}.jpg", bytes([i + 1]), "image/jpeg")) for i in range(7)])
+        self.assertEqual(response.status_code, 200)
+        result = response.json()
+        self.assertEqual(len(self.calls), 1)
+        content = self.calls[0]["messages"][0]["content"]
+        self.assertEqual([base64.b64decode(x["source"]["data"])[0] for x in content if x["type"] == "image"], list(range(1, 8)))
+        self.assertEqual(result["selected_frame_indices"], list(range(7)))
+        self.assertEqual(result["selected_frame_times_s"], [i / 6 for i in range(7)])
+        self.assertEqual(result["vision"]["usable_frames"], 7)
+        self.assertTrue(result["fall_detected"])
+        self.assertEqual(result["frame_policy"], "all_decodable")
+
+    def test_undecodable_frames_are_not_fabricated_or_treated_as_negative(self):
+        self.backend._decode = lambda data: None
+        response = self.client.post("/analyze", headers=self.headers,
+            files=[("frames", ("invalid.jpg", b"invalid", "image/jpeg"))])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.calls, [])
+        self.assertIsNone(response.json()["fall_detected"])
+        self.assertEqual(response.json()["selected_frame_indices"], [])
+
+    def test_analyze_duplicate_event_does_not_repeat_model_or_reset_conversation(self):
+        def request():
+            return self.client.post("/analyze", headers=self.headers, data={"event_id": "idempotent-event"},
+                files=[("frames", ("frame.jpg", bytes([1]), "image/jpeg"))])
+        first = request()
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(len(self.calls), 1)
+        event = first.json()
+        for key in ["latency_queue_and_lookup_ms", "latency_preprocess_ms", "latency_model_ms", "latency_store_ms", "latency_server_ms"]:
+            self.assertGreaterEqual(event[key], 0)
+        self.assertEqual(event["prompt_version"], self.backend.PROMPT_VERSION)
+        self.events["idempotent-event"]["status"] = "check_in_complete"
+        self.assertEqual(request().json()["status"], "check_in_complete")
+        self.assertEqual(len(self.calls), 1)
+        payload = self.calls[0]
+        self.assertEqual(payload["extra_body"]["output_config"]["format"]["schema"], self.backend.VISION_SCHEMA)
+        self.assertEqual(payload["model"], self.backend.CLAUDE_MODEL)
+
     def test_negative_visual_result_closes_event_and_unavailable_is_not_false(self):
         def analyze():
-            return self.client.post("/analyze", headers=self.headers, data={"event_id": "visual-result"},
+            return self.client.post("/analyze", headers=self.headers, data={"event_id": "visual-result-" + str(len(self.calls))},
                 files=[("frames", ("frame.jpg", bytes([1]), "image/jpeg"))]).json()
         self.vision_verdict = "NO"
         response = analyze()
