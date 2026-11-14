@@ -1,0 +1,113 @@
+/*
+ * In-lens UI layout.
+ *
+ * Meta Ray-Ban Display is additive-light: a black pixel is TRANSPARENT (no
+ * light added), a bright pixel is visible. So:
+ *   - Background is unlit (transparent, which we visualise as black here).
+ *   - Content is bright and high-contrast.
+ *   - We do NOT paint a full-screen bright background anywhere.
+ *   - All sizing is responsive; 600x600 is a validation target, not a hard
+ *     device dimension (per Meta web-apps guidelines).
+ */
+
+.lens-app {
+  position: absolute;
+  inset: 0;
+  color: #ffffff;
+  /* The theme CSS owns typography defaults; we only set layout here. */
+}
+
+.lens-root {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  padding: 10% 10%;
+  box-sizing: border-box;
+  /* Keep controls away from the edges — the device may show system focus
+     feedback there (per Meta display-and-layout docs). */
+}
+
+/* Stacked, centred layout used by the primary states. */
+.lens-stack {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  text-align: center;
+}
+
+/* Corner layout used by IDLE: faint, unobtrusive, bottom-left. */
+.lens-corner {
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 6% 6%;
+}
+
+.lens-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lens-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.lens-hint {
+  opacity: 0.95;
+}
+
+.lens-icon-xl {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* -------- Checking-in: countdown ring around the hourglass ---------------
+   A thin arc sweeping around the icon communicates the time budget before
+   the system escalates. Pure structural signal — survives colour-blindness. */
+.countdown-ring::before {
+  content: '';
+  position: absolute;
+  inset: -36px;
+  border-radius: 50%;
+  border: 6px solid rgba(255, 214, 10, 0.18);
+  border-top-color: #FFD60A;
+  animation: countdown-spin 15s linear forwards;
+}
+
+@keyframes countdown-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* -------- Escalated: hazard icon gently pulses to draw the eye ----------- */
+.hazard-pulse {
+  animation: hazard-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes hazard-pulse {
+  0%, 100% { transform: scale(1);    opacity: 1;    }
+  50%      { transform: scale(1.06); opacity: 0.82; }
+}
+
+/* A faint directional cue under the hazard triangle so it reads as urgent
+   even without colour. We avoid full-screen flashes (which violate Meta's
+   "no bright full-screen backgrounds" guideline). */
+.lens-alert::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  width: 60%;
+  height: 3px;
+  background: #FF3B30;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  opacity: 0.75;
+}
