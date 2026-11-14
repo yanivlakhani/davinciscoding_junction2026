@@ -14,7 +14,14 @@ function readInitialState(): LensState {
 
 function isGlassesMode(): boolean {
   if (typeof window === 'undefined') return false;
-  return new URLSearchParams(window.location.search).get('mode') === 'glasses';
+  const mode = new URLSearchParams(window.location.search).get('mode');
+  if (mode === 'glasses') return true;
+  if (mode === 'preview') return false;
+  // Default: production builds (the ones that ship to the glasses via a
+  // hosted HTTPS URL) skip the dev picker. Local `npm run dev` still shows
+  // the full preview harness. Override either way with ?mode=glasses or
+  // ?mode=preview.
+  return import.meta.env.PROD;
 }
 
 export function Preview() {
