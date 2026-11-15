@@ -1,0 +1,34 @@
+{
+  "run": {
+    "date": "2026-11-14T17:43:43",
+    "url": "https://lorejob--fall-detection-backend-fastapi-app.us-east.modal.run",
+    "force": false,
+    "model": "claude-sonnet-5-5",
+    "prompt_version": "v2-onground",
+    "folder": "/Users/eddi/Desktop/JUNCTION/test_api"
+  },
+  "n_images": 8,
+  "n_sent_to_model": 8,
+  "n_quality_rejected": 0,
+  "n_errors": 0,
+  "pred_counts": {
+    "yes": 0,
+    "no": 7,
+    "uncertain": 1
+  },
+  "metrics": null,
+  "latency_ms": {
+    "latency_model_ms": {
+      "median": 2360.0,
+      "p95": 5820
+    },
+    "latency_server_ms": {
+      "median": 2676.5,
+      "p95": 6239
+    },
+    "latency_total_ms": {
+      "median": 12060.5,
+      "p95": 22941
+    }
+  }
+}

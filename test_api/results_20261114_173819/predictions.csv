@@ -1,0 +1,9 @@
+image,label,pred_on_ground,camera_height,view,place,confidence,sent_to_model,usable,brightness,sharpness,contrast,faces_blurred,latency_model_ms,latency_server_ms,latency_total_ms,model,prompt_version,reason,error
+IMG_8598.PNG,,uncertain,uncertain,uncertain,unknown,0.0,False,False,41.4,19.3,49.5,2,,322,17026,claude-sonnet-5-5,v2-onground,Analisi visiva non disponibile.,
+IMG_8599.PNG,,uncertain,uncertain,uncertain,unknown,0.0,False,False,24.3,5.9,26.7,4,,947,6550,claude-sonnet-5-5,v2-onground,Analisi visiva non disponibile.,
+IMG_8600.PNG,,uncertain,uncertain,uncertain,unknown,0.0,False,False,39.9,13.6,38.1,0,,294,12305,claude-sonnet-5-5,v2-onground,Analisi visiva non disponibile.,
+IMG_8601.PNG,,uncertain,uncertain,uncertain,unknown,0.0,False,False,59.7,11.4,35.1,0,,237,11911,claude-sonnet-5-5,v2-onground,Analisi visiva non disponibile.,
+IMG_8603.PNG,,uncertain,uncertain,uncertain,unknown,0.0,False,False,92.9,31.8,60.6,2,,287,13360,claude-sonnet-5-5,v2-onground,Analisi visiva non disponibile.,
+IMG_8604.PNG,,uncertain,uncertain,uncertain,unknown,0.0,False,False,79.4,36.4,49.7,0,,299,8378,claude-sonnet-5-5,v2-onground,Analisi visiva non disponibile.,
+IMG_8605.PNG,,uncertain,uncertain,uncertain,unknown,0.0,False,False,45.6,10.3,39.5,2,,333,6435,claude-sonnet-5-5,v2-onground,Analisi visiva non disponibile.,
+IMG_8606.PNG,,uncertain,uncertain,uncertain,unknown,0.0,False,False,65.1,14.1,46.3,0,,311,16409,claude-sonnet-5-5,v2-onground,Analisi visiva non disponibile.,

@@ -1,0 +1,753 @@
+{
+  "sampling_rate_hz": 30,
+  "method": {
+    "search_window_s": 3,
+    "freefall_threshold_m_s2": 5.88399,
+    "gyro_onset_threshold_rad_s": 3,
+    "impact_threshold_m_s2": 15,
+    "end_std_threshold_m_s2": 0.5,
+    "end_std_window_s": 0.5,
+    "end_gravity_angle_deg": 5,
+    "end_gravity_window_s": 1,
+    "gravity_lowpass_hz": 0.3,
+    "got_up_cone_deg": 30,
+    "got_up_mean_window_s": 1,
+    "estimated_height": "0.5*9.81*fall_duration^2; proxy balistico NON VALIDATO, anche con onset giroscopico",
+    "side": "segno ax medio nel secondo dopo impact: positivo destra, negativo sinistra",
+    "missing_values": "null; nessun onset/end sostitutivo",
+    "indices": "assoluti nella sessione ricampionata; tempi in secondi dal primo campione",
+    "got_up": "ritorno entro 30 gradi da +Y dopo uscita osservata a/dopo end; False non prova mancata rialzata",
+    "rotation_integrated": "integrale trapezoidale |omega| da onset a end; null se manca un estremo"
+  },
+  "sessions": [
+    {
+      "session_id": "00f9211b3a28484fa7140de76a53e27e",
+      "annotated_intervals_s": [
+        [
+          2.8640594999999998,
+          5.9171645999999996
+        ]
+      ],
+      "segments": [
+        {
+          "window_start_idx": 35,
+          "window_end_idx": 215,
+          "onset": 98,
+          "onset_basis": "freefall",
+          "impact": 125,
+          "secondary_impacts": [
+            112,
+            116,
+            127
+          ],
+          "end": 170,
+          "got_up": false,
+          "got_up_idx": null,
+          "onset_time": 3.2666666666666666,
+          "impact_time": 4.166666666666667,
+          "secondary_impact_times": [
+            3.7333333333333334,
+            3.8666666666666667,
+            4.233333333333333
+          ],
+          "end_time": 5.666666666666667,
+          "got_up_time": null,
+          "fall_duration": 0.9,
+          "estimated_height": 3.9730500000000006,
+          "estimated_height_validated": false,
+          "peak_acc": 34.48735038028801,
+          "n_impacts": 4,
+          "rotation_integrated": 2.5559358061079696,
+          "side": "destra",
+          "post_ax_mean": 2.1619041265679675,
+          "time_to_still": 1.5,
+          "annotated_peak_idx": 125,
+          "annotated_interval_s": [
+            2.8640594999999998,
+            5.9171645999999996
+          ],
+          "window_start_time": 1.1666666666666667,
+          "window_end_time": 7.166666666666667
+        }
+      ]
+    },
+    {
+      "session_id": "2defd28308c04bcbb925fd683ca924bc",
+      "annotated_intervals_s": [
+        [
+          5.728103,
+          9.0842892
+        ]
+      ],
+      "segments": [
+        {
+          "window_start_idx": 154,
+          "window_end_idx": 317,
+          "onset": 238,
+          "onset_basis": "freefall",
+          "impact": 244,
+          "secondary_impacts": [
+            217,
+            220
+          ],
+          "end": 259,
+          "got_up": false,
+          "got_up_idx": null,
+          "onset_time": 7.933333333333334,
+          "impact_time": 8.133333333333333,
+          "secondary_impact_times": [
+            7.233333333333333,
+            7.333333333333333
+          ],
+          "end_time": 8.633333333333333,
+          "got_up_time": null,
+          "fall_duration": 0.2,
+          "estimated_height": 0.19620000000000004,
+          "estimated_height_validated": false,
+          "peak_acc": 43.45573011990752,
+          "n_impacts": 3,
+          "rotation_integrated": 1.2975003112886052,
+          "side": "sinistra",
+          "post_ax_mean": -10.79110965847855,
+          "time_to_still": 0.5,
+          "annotated_peak_idx": 244,
+          "annotated_interval_s": [
+            5.728103,
+            9.0842892
+          ],
+          "window_start_time": 5.133333333333334,
+          "window_end_time": 10.566666666666666
+        }
+      ]
+    },
+    {
+      "session_id": "45a239871df34489895cb9c03529720d",
+      "annotated_intervals_s": [
+        [
+          2.331207,
+          5.85074565
+        ]
+      ],
+      "segments": [
+        {
+          "window_start_idx": 33,
+          "window_end_idx": 199,
+          "onset": 120,
+          "onset_basis": "freefall",
+          "impact": 123,
+          "secondary_impacts": [
+            107,
+            112,
+            119
+          ],
+          "end": 151,
+          "got_up": false,
+          "got_up_idx": null,
+          "onset_time": 4.0,
+          "impact_time": 4.1,
+          "secondary_impact_times": [
+            3.566666666666667,
+            3.7333333333333334,
+            3.966666666666667
+          ],
+          "end_time": 5.033333333333333,
+          "got_up_time": null,
+          "fall_duration": 0.1,
+          "estimated_height": 0.04905000000000001,
+          "estimated_height_validated": false,
+          "peak_acc": 37.46950347477797,
+          "n_impacts": 4,
+          "rotation_integrated": 1.2028237998531008,
+          "side": "destra",
+          "post_ax_mean": 4.148854385952278,
+          "time_to_still": 0.9333333333333333,
+          "annotated_peak_idx": 123,
+          "annotated_interval_s": [
+            2.331207,
+            5.85074565
+          ],
+          "window_start_time": 1.1,
+          "window_end_time": 6.633333333333334
+        }
+      ]
+    },
+    {
+      "session_id": "54521c6308d7413ba93b000ccebc4f0d",
+      "annotated_intervals_s": [
+        [
+          2.5975954999999997,
+          13.5839115
+        ]
+      ],
+      "segments": [
+        {
+          "window_start_idx": 59,
+          "window_end_idx": 239,
+          "onset": 148,
+          "onset_basis": "freefall",
+          "impact": 149,
+          "secondary_impacts": [
+            126
+          ],
+          "end": 199,
+          "got_up": true,
+          "got_up_idx": 482,
+          "onset_time": 4.933333333333334,
+          "impact_time": 4.966666666666667,
+          "secondary_impact_times": [
+            4.2
+          ],
+          "end_time": 6.633333333333334,
+          "got_up_time": 16.066666666666666,
+          "fall_duration": 0.03333333333333333,
+          "estimated_height": 0.00545,
+          "estimated_height_validated": false,
+          "peak_acc": 24.21790195810161,
+          "n_impacts": 2,
+          "rotation_integrated": 1.478591026792649,
+          "side": "sinistra",
+          "post_ax_mean": -2.1827865491748293,
+          "time_to_still": 1.6666666666666667,
+          "annotated_peak_idx": 149,
+          "annotated_interval_s": [
+            2.5975954999999997,
+            13.5839115
+          ],
+          "window_start_time": 1.9666666666666666,
+          "window_end_time": 7.966666666666667
+        }
+      ]
+    },
+    {
+      "session_id": "6f288d3e7f934ecba1fa1257cdf5ad50",
+      "annotated_intervals_s": [
+        [
+          1.8649749999999998,
+          5.51737375
+        ]
+      ],
+      "segments": [
+        {
+          "window_start_idx": 37,
+          "window_end_idx": 209,
+          "onset": 109,
+          "onset_basis": "freefall",
+          "impact": 127,
+          "secondary_impacts": [
+            97,
+            112
+          ],
+          "end": null,
+          "got_up": false,
+          "got_up_idx": null,
+          "onset_time": 3.6333333333333333,
+          "impact_time": 4.233333333333333,
+          "secondary_impact_times": [
+            3.2333333333333334,
+            3.7333333333333334
+          ],
+          "end_time": null,
+          "got_up_time": null,
+          "fall_duration": 0.6,
+          "estimated_height": 1.7658,
+          "estimated_height_validated": false,
+          "peak_acc": 19.82761982932494,
+          "n_impacts": 3,
+          "rotation_integrated": null,
+          "side": "sinistra",
+          "post_ax_mean": -0.4849714638577703,
+          "time_to_still": null,
+          "annotated_peak_idx": 127,
+          "annotated_interval_s": [
+            1.8649749999999998,
+            5.51737375
+          ],
+          "window_start_time": 1.2333333333333334,
+          "window_end_time": 6.966666666666667
+        }
+      ]
+    },
+    {
+      "session_id": "7df5c18d8b104dd0b00e553594a21a1c",
+      "annotated_intervals_s": [
+        [
+          1.7317654999999998,
+          4.78404335
+        ]
+      ],
+      "segments": [
+        {
+          "window_start_idx": 8,
+          "window_end_idx": 168,
+          "onset": 94,
+          "onset_basis": "freefall",
+          "impact": 98,
+          "secondary_impacts": [
+            86,
+            108
+          ],
+          "end": 133,
+          "got_up": false,
+          "got_up_idx": null,
+          "onset_time": 3.1333333333333333,
+          "impact_time": 3.2666666666666666,
+          "secondary_impact_times": [
+            2.8666666666666667,
+            3.6
+          ],
+          "end_time": 4.433333333333334,
+          "got_up_time": null,
+          "fall_duration": 0.13333333333333333,
+          "estimated_height": 0.0872,
+          "estimated_height_validated": false,
+          "peak_acc": 35.09718033414287,
+          "n_impacts": 3,
+          "rotation_integrated": 1.8837129666262364,
+          "side": "destra",
+          "post_ax_mean": 5.579958896717215,
+          "time_to_still": 1.1666666666666667,
+          "annotated_peak_idx": 98,
+          "annotated_interval_s": [
+            1.7317654999999998,
+            4.78404335
+          ],
+          "window_start_time": 0.26666666666666666,
+          "window_end_time": 5.6
+        }
+      ]
+    },
+    {
+      "session_id": "973d6a171e6744478a837c24aa82bbb4",
+      "annotated_intervals_s": [
+        [
+          3.0305635,
+          7.250845249999999
+        ]
+      ],
+      "segments": [
+        {
+          "window_start_idx": 73,
+          "window_end_idx": 245,
+          "onset": 156,
+          "onset_basis": "freefall",
+          "impact": 163,
+          "secondary_impacts": [
+            151,
+            175,
+            178
+          ],
+          "end": 189,
+          "got_up": false,
+          "got_up_idx": null,
+          "onset_time": 5.2,
+          "impact_time": 5.433333333333334,
+          "secondary_impact_times": [
+            5.033333333333333,
+            5.833333333333333,
+            5.933333333333334
+          ],
+          "end_time": 6.3,
+          "got_up_time": null,
+          "fall_duration": 0.23333333333333334,
+          "estimated_height": 0.26705,
+          "estimated_height_validated": false,
+          "peak_acc": 31.080983256144727,
+          "n_impacts": 4,
+          "rotation_integrated": 2.0733108990762297,
+          "side": "sinistra",
+          "post_ax_mean": -0.4762013685175196,
+          "time_to_still": 0.8666666666666667,
+          "annotated_peak_idx": 163,
+          "annotated_interval_s": [
+            3.0305635,
+            7.250845249999999
+          ],
+          "window_start_time": 2.433333333333333,
+          "window_end_time": 8.166666666666666
+        }
+      ]
+    },
+    {
+      "session_id": "c3ec7abf52bf4397933120cf4781c1b2",
+      "annotated_intervals_s": [
+        [
+          2.297867,
+          3.3635715
+        ]
+      ],
+      "segments": [
+        {
+          "window_start_idx": 1,
+          "window_end_idx": 181,
+          "onset": 158,
+          "onset_basis": "freefall",
+          "impact": 164,
+          "secondary_impacts": [
+            136,
+            138,
+            155
+          ],
+          "end": null,
+          "got_up": false,
+          "got_up_idx": null,
+          "onset_time": 5.266666666666667,
+          "impact_time": 5.466666666666667,
+          "secondary_impact_times": [
+            4.533333333333333,
+            4.6,
+            5.166666666666667
+          ],
+          "end_time": null,
+          "got_up_time": null,
+          "fall_duration": 0.2,
+          "estimated_height": 0.19620000000000004,
+          "estimated_height_validated": false,
+          "peak_acc": 35.72341240561762,
+          "n_impacts": 4,
+          "rotation_integrated": null,
+          "side": "destra",
+          "post_ax_mean": 8.310821371164351,
+          "time_to_still": null,
+          "annotated_peak_idx": 91,
+          "annotated_interval_s": [
+            2.297867,
+            3.3635715
+          ],
+          "window_start_time": 0.03333333333333333,
+          "window_end_time": 6.033333333333333
+        }
+      ]
+    },
+    {
+      "session_id": "c4656a10b80447dc91c6735893b53c15",
+      "annotated_intervals_s": [
+        [
+          12.2888795,
+          14.7532955
+        ]
+      ],
+      "segments": [
+        {
+          "window_start_idx": 336,
+          "window_end_idx": 516,
+          "onset": 404,
+          "onset_basis": "freefall",
+          "impact": 426,
+          "secondary_impacts": [],
+          "end": null,
+          "got_up": false,
+          "got_up_idx": null,
+          "onset_time": 13.466666666666667,
+          "impact_time": 14.2,
+          "secondary_impact_times": [],
+          "end_time": null,
+          "got_up_time": null,
+          "fall_duration": 0.7333333333333333,
+          "estimated_height": 2.6377999999999995,
+          "estimated_height_validated": false,
+          "peak_acc": 21.34874616330528,
+          "n_impacts": 1,
+          "rotation_integrated": null,
+          "side": "destra",
+          "post_ax_mean": 0.5256409822497926,
+          "time_to_still": null,
+          "annotated_peak_idx": 426,
+          "annotated_interval_s": [
+            12.2888795,
+            14.7532955
+          ],
+          "window_start_time": 11.2,
+          "window_end_time": 17.2
+        }
+      ]
+    },
+    {
+      "session_id": "cfe78525c20f4c859b789a2ac909c4d6",
+      "annotated_intervals_s": [
+        [
+          2.4644315,
+          6.950329399999999
+        ]
+      ],
+      "segments": [
+        {
+          "window_start_idx": 41,
+          "window_end_idx": 221,
+          "onset": 116,
+          "onset_basis": "freefall",
+          "impact": 131,
+          "secondary_impacts": [
+            143
+          ],
+          "end": null,
+          "got_up": false,
+          "got_up_idx": null,
+          "onset_time": 3.8666666666666667,
+          "impact_time": 4.366666666666666,
+          "secondary_impact_times": [
+            4.766666666666667
+          ],
+          "end_time": null,
+          "got_up_time": null,
+          "fall_duration": 0.5,
+          "estimated_height": 1.22625,
+          "estimated_height_validated": false,
+          "peak_acc": 15.8022401974846,
+          "n_impacts": 2,
+          "rotation_integrated": null,
+          "side": "sinistra",
+          "post_ax_mean": -0.978496636502075,
+          "time_to_still": null,
+          "annotated_peak_idx": 131,
+          "annotated_interval_s": [
+            2.4644315,
+            6.950329399999999
+          ],
+          "window_start_time": 1.3666666666666667,
+          "window_end_time": 7.366666666666666
+        }
+      ]
+    },
+    {
+      "session_id": "dd1597d3589749678c797210db1bf725",
+      "annotated_intervals_s": [
+        [
+          2.197952,
+          8.48384695
+        ]
+      ],
+      "segments": [
+        {
+          "window_start_idx": 10,
+          "window_end_idx": 190,
+          "onset": 83,
+          "onset_basis": "freefall",
+          "impact": 100,
+          "secondary_impacts": [
+            129
+          ],
+          "end": null,
+          "got_up": false,
+          "got_up_idx": null,
+          "onset_time": 2.7666666666666666,
+          "impact_time": 3.3333333333333335,
+          "secondary_impact_times": [
+            4.3
+          ],
+          "end_time": null,
+          "got_up_time": null,
+          "fall_duration": 0.5666666666666667,
+          "estimated_height": 1.5750499999999998,
+          "estimated_height_validated": false,
+          "peak_acc": 21.410763614515083,
+          "n_impacts": 2,
+          "rotation_integrated": null,
+          "side": "sinistra",
+          "post_ax_mean": -1.7717764556210853,
+          "time_to_still": null,
+          "annotated_peak_idx": 100,
+          "annotated_interval_s": [
+            2.197952,
+            8.48384695
+          ],
+          "window_start_time": 0.3333333333333333,
+          "window_end_time": 6.333333333333333
+        }
+      ]
+    },
+    {
+      "session_id": "eaa0f8ec61584960b18a64a35c915cf9",
+      "annotated_intervals_s": [
+        [
+          1.931579,
+          4.7174982
+        ]
+      ],
+      "segments": [
+        {
+          "window_start_idx": 9,
+          "window_end_idx": 189,
+          "onset": 73,
+          "onset_basis": "freefall",
+          "impact": 99,
+          "secondary_impacts": [
+            87,
+            94,
+            96
+          ],
+          "end": 127,
+          "got_up": false,
+          "got_up_idx": null,
+          "onset_time": 2.433333333333333,
+          "impact_time": 3.3,
+          "secondary_impact_times": [
+            2.9,
+            3.1333333333333333,
+            3.2
+          ],
+          "end_time": 4.233333333333333,
+          "got_up_time": null,
+          "fall_duration": 0.8666666666666667,
+          "estimated_height": 3.6842000000000006,
+          "estimated_height_validated": false,
+          "peak_acc": 51.33076031883971,
+          "n_impacts": 4,
+          "rotation_integrated": 3.048182871560836,
+          "side": "destra",
+          "post_ax_mean": 9.378777311461887,
+          "time_to_still": 0.9333333333333333,
+          "annotated_peak_idx": 99,
+          "annotated_interval_s": [
+            1.931579,
+            4.7174982
+          ],
+          "window_start_time": 0.3,
+          "window_end_time": 6.3
+        }
+      ]
+    },
+    {
+      "session_id": "eb64936880cd447a9c20c695f4f90e38",
+      "annotated_intervals_s": [
+        [
+          3.1970525,
+          10.9173406
+        ]
+      ],
+      "segments": [
+        {
+          "window_start_idx": 51,
+          "window_end_idx": 231,
+          "onset": 121,
+          "onset_basis": "freefall",
+          "impact": 141,
+          "secondary_impacts": [],
+          "end": 166,
+          "got_up": false,
+          "got_up_idx": null,
+          "onset_time": 4.033333333333333,
+          "impact_time": 4.7,
+          "secondary_impact_times": [],
+          "end_time": 5.533333333333333,
+          "got_up_time": null,
+          "fall_duration": 0.6666666666666666,
+          "estimated_height": 2.18,
+          "estimated_height_validated": false,
+          "peak_acc": 20.66419268722262,
+          "n_impacts": 1,
+          "rotation_integrated": 1.388748672156516,
+          "side": "sinistra",
+          "post_ax_mean": -0.5434555719696523,
+          "time_to_still": 0.8333333333333334,
+          "annotated_peak_idx": 141,
+          "annotated_interval_s": [
+            3.1970525,
+            10.9173406
+          ],
+          "window_start_time": 1.7,
+          "window_end_time": 7.7
+        }
+      ]
+    },
+    {
+      "session_id": "ef8ef0ed652e42f4abc1faf58fee525f",
+      "annotated_intervals_s": [
+        [
+          2.9306634999999996,
+          6.860397
+        ]
+      ],
+      "segments": [
+        {
+          "window_start_idx": 90,
+          "window_end_idx": 270,
+          "onset": 170,
+          "onset_basis": "freefall",
+          "impact": 180,
+          "secondary_impacts": [
+            162,
+            174
+          ],
+          "end": null,
+          "got_up": false,
+          "got_up_idx": null,
+          "onset_time": 5.666666666666667,
+          "impact_time": 6.0,
+          "secondary_impact_times": [
+            5.4,
+            5.8
+          ],
+          "end_time": null,
+          "got_up_time": null,
+          "fall_duration": 0.3333333333333333,
+          "estimated_height": 0.545,
+          "estimated_height_validated": false,
+          "peak_acc": 20.4073684856012,
+          "n_impacts": 3,
+          "rotation_integrated": null,
+          "side": "destra",
+          "post_ax_mean": 9.371791771134003,
+          "time_to_still": null,
+          "annotated_peak_idx": 180,
+          "annotated_interval_s": [
+            2.9306634999999996,
+            6.860397
+          ],
+          "window_start_time": 3.0,
+          "window_end_time": 9.0
+        }
+      ]
+    },
+    {
+      "session_id": "f9396e8b57434eb3b55a39dea110f29e",
+      "annotated_intervals_s": [
+        [
+          1.9981685,
+          5.0175782
+        ]
+      ],
+      "segments": [
+        {
+          "window_start_idx": 7,
+          "window_end_idx": 185,
+          "onset": 83,
+          "onset_basis": "gyroscope",
+          "impact": 97,
+          "secondary_impacts": [
+            91,
+            93,
+            110
+          ],
+          "end": 135,
+          "got_up": false,
+          "got_up_idx": null,
+          "onset_time": 2.7666666666666666,
+          "impact_time": 3.2333333333333334,
+          "secondary_impact_times": [
+            3.033333333333333,
+            3.1,
+            3.6666666666666665
+          ],
+          "end_time": 4.5,
+          "got_up_time": null,
+          "fall_duration": 0.4666666666666667,
+          "estimated_height": 1.0682,
+          "estimated_height_validated": false,
+          "peak_acc": 29.062778988271287,
+          "n_impacts": 4,
+          "rotation_integrated": 2.5323746356876393,
+          "side": "destra",
+          "post_ax_mean": 3.65587451467533,
+          "time_to_still": 1.2666666666666666,
+          "annotated_peak_idx": 97,
+          "annotated_interval_s": [
+            1.9981685,
+            5.0175782
+          ],
+          "window_start_time": 0.23333333333333334,
+          "window_end_time": 6.166666666666667
+        }
+      ]
+    }
+  ]
+}

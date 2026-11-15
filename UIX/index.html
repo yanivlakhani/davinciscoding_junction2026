@@ -1,0 +1,2665 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#E8F7F4" />
+<meta name="apple-mobile-web-app-title" content="Safy" />
+<title>Safy</title>
+<style>
+  /*
+   * Safy's aqua palette, system fonts, and distinct warning colours.
+   */
+  :root {
+    --paper: #F1FAF8;
+    --paper-2: #E1F3EF;
+    --ink: #123B38;
+    --grey: #58716D;
+    --mid: #819792;
+    --faint: #A7BBB6;
+    --rule: #C8DEDA;
+    --block: #D7EAE5;
+    --red: #EE352E;
+    --green: #0F766E;
+    --blue: #0039A6;
+    --yellow: #FCCC0A;
+    --aqua: #14B8A6;
+    --screen-top: 54px;
+    --screen-bottom: 78px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    overflow-x: hidden;
+    background: #122624;
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Helvetica", Arial, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Device chrome: a phone frame for the desktop preview only. On a real */
+  /* phone the frame disappears and the app fills the screen.             */
+  /* -------------------------------------------------------------------- */
+  .frame {
+    position: relative;
+    width: 360px;
+    height: 760px;
+    margin: 20px auto;
+    background: linear-gradient(155deg, #F5FCFA 0%, #E8F7F4 48%, #E0F2EF 100%);
+    border: 11px solid #0a0a0a;
+    border-radius: 54px;
+    overflow: hidden;
+    box-shadow: 0 30px 90px rgba(0,0,0,0.5), inset 0 0 0 1px #2a2a2a;
+  }
+  .notch {
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 118px; height: 32px;
+    background: #0a0a0a;
+    border-radius: 0 0 20px 20px;
+    z-index: 20;
+  }
+  .home-indicator {
+    position: absolute;
+    bottom: 8px; left: 50%;
+    transform: translateX(-50%);
+    width: 134px; height: 5px;
+    background: var(--ink);
+    border-radius: 3px;
+    z-index: 30;
+    opacity: 0.85;
+  }
+
+  /* iOS-style status bar (clock + carrier/wifi/battery) */
+  .statusbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 54px;
+    padding: 18px 32px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    color: var(--ink);
+    z-index: 10;
+  }
+  .statusbar .time { font-variant-numeric: tabular-nums; }
+  .statusbar .trio { display: flex; gap: 6px; align-items: center; }
+  .statusbar svg { display: block; }
+
+  /* Strip the frame on actual phone-sized viewports */
+  @media (max-width: 500px) {
+    body { background: var(--paper); }
+    .frame {
+      width: 100%;
+      height: 100vh;
+      margin: 0;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .notch { display: none; }
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Screens                                                              */
+  /* -------------------------------------------------------------------- */
+  .screen {
+    position: absolute;
+    inset: 0;
+    padding: 54px 0 78px;
+    background: var(--paper);
+    display: none;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .screen.on { display: flex; }
+
+  /* Section strip: the deck's black-bar language, pulled down to subhead size */
+  .strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 14px 24px 2px;
+  }
+  .strip .label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+  .strip .page {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--grey);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .h-title {
+    padding: 0 24px 14px;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.9px;
+    line-height: 1.02;
+  }
+  /* Back action lives inside the section strip, left-aligned, replacing
+     the section label when present. */
+  .strip .back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--ink);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .strip .back::before {
+    content: "";
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-left: 1.5px solid var(--ink);
+    border-top: 1.5px solid var(--ink);
+    transform: rotate(-45deg) translate(1px, 1px);
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Status card — the one thing you see when you open the app            */
+  /* -------------------------------------------------------------------- */
+  .status {
+    margin: 2px 20px 0;
+    border: 1.5px solid var(--ink);
+    background: var(--paper);
+    padding: 22px 20px 18px;
+  }
+  .status-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .status-text { flex: 1; min-width: 0; }
+  .status-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    line-height: 1.15;
+    margin: 0;
+  }
+  .status-sub {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: var(--grey);
+    line-height: 1.35;
+  }
+  .status-disc {
+    flex-shrink: 0;
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--paper);
+  }
+  .status-disc svg { width: 28px; height: 30px; }
+  .status-disc.on  { background: var(--green); }
+  .status-disc.off { background: var(--red); }
+  .status-disc.on  .i-off { display: none; }
+  .status-disc.off .i-on  { display: none; }
+
+  .status-foot {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+  }
+  .big-toggle {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2px 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--ink);
+  }
+  .big-toggle-hint {
+    font-size: 13px;
+    color: var(--grey);
+    letter-spacing: -0.1px;
+  }
+
+  /* Deliberately not an iOS pill switch. Square, high-contrast. */
+  .switch {
+    position: relative;
+    width: 60px;
+    height: 32px;
+    background: var(--ink);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    width: 26px;
+    height: 26px;
+    background: var(--green);
+    transition: all 0.18s cubic-bezier(.3,.7,.3,1);
+    right: 3px;
+  }
+  .switch { flex-shrink: 0; display: block; }
+  .switch.is-off { background: var(--block); }
+  .switch.is-off::after { right: auto; left: 3px; background: var(--red); }
+
+  /* Second control, attached under the status card: location sharing */
+  .control {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    width: calc(100% - 40px);
+    margin: 0 20px;
+    padding: 15px 20px;
+    border: 1.5px solid var(--ink);
+    border-top: none;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .control-text { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .control-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+  .control-val {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.1px;
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Spec list — the "manual" feel: capitalised keys, tabular numbers     */
+  /* -------------------------------------------------------------------- */
+  .specs {
+    margin: 22px 20px 0;
+    border-top: 1px solid var(--ink);
+  }
+  .spec {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .spec-key {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+  .spec-val {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.1px;
+  }
+  .spec-val .dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    background: var(--green);
+    margin-right: 6px;
+    vertical-align: 1px;
+  }
+  .spec-val .dot.off { background: var(--mid); }
+
+  /* -------------------------------------------------------------------- */
+  /* Sections (contacts preview on home, full list on contacts screen)    */
+  /* -------------------------------------------------------------------- */
+  .section {
+    margin: 26px 20px 0;
+  }
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 6px;
+    margin-bottom: 2px;
+  }
+  .section-head h2 {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+  }
+  .section-head .action {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--ink);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .section-head-meta {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+
+  .contact {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule);
+    text-align: left;
+    background: none;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    width: 100%;
+    cursor: pointer;
+    color: var(--ink);
+    font-family: inherit;
+  }
+  .contact.slim { padding: 11px 0; align-items: center; }
+  .contact-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+  .contact-name {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+  }
+  .contact-rel {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+  .contact-info {
+    margin-top: 6px;
+    font-size: 12.5px;
+    color: var(--grey);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.1px;
+  }
+  .contact-chev {
+    flex-shrink: 0;
+    margin-left: 12px;
+    font-size: 18px;
+    color: var(--mid);
+    line-height: 1;
+    padding-top: 2px;
+  }
+  #screen-contacts .strip { padding: 18px 24px 0; align-items: center; }
+  #screen-contacts .h-title {
+    margin: 24px 0 0;
+    padding: 0 24px;
+    font-size: 29px;
+    line-height: 1.15;
+  }
+  #screen-contacts .section { margin: 26px 24px 0; }
+  #screen-contacts .section-head {
+    border: 0;
+    padding: 0;
+    margin-bottom: 12px;
+  }
+  #screen-contacts .section-head h2 {
+    color: var(--grey);
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+  #screen-contacts .contact {
+    align-items: center;
+    padding: 20px;
+    border: 1px solid rgba(15,118,110,0.12);
+    border-radius: 20px;
+    background: rgba(255,255,255,0.72);
+    box-shadow: 0 8px 24px rgba(15,118,110,0.06);
+  }
+  #screen-contacts .contact-main { gap: 7px; }
+  #screen-contacts .contact-name { font-size: 20px; line-height: 1.25; overflow-wrap: anywhere; }
+  #screen-contacts .contact-rel { font-size: 10px; letter-spacing: 1px; }
+  #screen-contacts .contact-info { margin-top: 6px; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+  #screen-contacts .contact-chev {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 50%;
+    background: rgba(20,184,166,0.08);
+    color: var(--green);
+  }
+  #screen-contacts .form-note {
+    margin: 20px 24px 24px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(15,118,110,0.05);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .primary-tag {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--green);
+    color: var(--paper);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    margin-left: 6px;
+    vertical-align: 1.5px;
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Tab bar                                                              */
+  /* -------------------------------------------------------------------- */
+  .tabbar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 78px;
+    background: var(--paper);
+    border-top: 1px solid var(--ink);
+    display: flex;
+    padding-bottom: 18px;
+    z-index: 15;
+  }
+  .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    padding: 10px 0 0;
+    font-family: inherit;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: var(--mid);
+    cursor: pointer;
+    position: relative;
+  }
+  .tab svg { stroke: currentColor; }
+  .tab.is-active { color: var(--ink); }
+  .tab.is-active::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 36px;
+    height: 2px;
+    background: var(--ink);
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Edit contact form                                                    */
+  /* -------------------------------------------------------------------- */
+  .form {
+    margin: 10px 20px 0;
+  }
+  .field {
+    display: block;
+    padding: 16px 0 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .field-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--grey);
+    margin-bottom: 10px;
+  }
+  .field-input {
+    width: 100%;
+    background: none;
+    border: none;
+    outline: none;
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.3px;
+    padding: 0;
+  }
+  .field-input::placeholder { color: var(--faint); }
+  .field-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 0;
+  }
+  .field-select {
+    width: 100%;
+    background: none;
+    border: none;
+    outline: none;
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.3px;
+    padding: 0;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .form-actions {
+    margin: 24px 20px 0;
+    display: flex;
+    gap: 10px;
+  }
+  .form-note {
+    margin: 18px 20px 0;
+    font-size: 12px;
+    color: var(--grey);
+    line-height: 1.4;
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Confirm-off sheet                                                    */
+  /* -------------------------------------------------------------------- */
+  .scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(10,10,10,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s;
+    z-index: 40;
+  }
+  .scrim.on { opacity: 1; pointer-events: auto; }
+
+  .sheet {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    background: var(--paper);
+    border-top: 2px solid var(--ink);
+    padding: 22px 24px 42px;
+    transform: translateY(100%);
+    transition: transform 0.22s cubic-bezier(.3,.7,.3,1);
+    z-index: 50;
+  }
+  .scrim.on + .sheet { transform: translateY(0); }
+
+  .sheet-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .sheet-triangle {
+    width: 36px; height: 32px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .sheet-triangle svg { display: block; }
+  .sheet-strip {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+  .sheet-title {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+    margin: 0 0 12px;
+  }
+  .sheet-body {
+    font-size: 14.5px;
+    line-height: 1.45;
+    color: var(--ink);
+    margin: 0 0 20px;
+  }
+  .sheet-body strong { font-weight: 700; }
+
+  .sheet-divider {
+    border: 0;
+    border-top: 1px solid var(--rule);
+    margin: 0 0 20px;
+  }
+  .sheet-list {
+    margin: 0 0 20px;
+    padding: 0;
+    list-style: none;
+  }
+  .sheet-list li {
+    padding: 8px 0 8px 18px;
+    position: relative;
+    font-size: 13.5px;
+    color: var(--grey);
+    line-height: 1.4;
+    border-bottom: 1px solid var(--rule);
+  }
+  .sheet-list li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 16px;
+    width: 10px;
+    height: 1px;
+    background: var(--ink);
+  }
+  .sheet-list li:last-child { border-bottom: none; }
+
+  .sheet-actions {
+    display: flex;
+    gap: 10px;
+  }
+  .btn {
+    flex: 1;
+    padding: 15px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: 1.5px solid var(--ink);
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .btn.danger {
+    background: var(--red);
+    border-color: var(--red);
+    color: var(--paper);
+  }
+  .btn.ink {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  /* Toast after turning off */
+  .toast {
+    position: absolute;
+    left: 20px; right: 20px;
+    bottom: 94px;
+    padding: 12px 14px;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: -0.1px;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 35;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none;
+  }
+  .toast.on { opacity: 1; transform: translateY(0); }
+  .toast .tag.ok { background: var(--green); }
+  .text-btn {
+    display: block;
+    width: calc(100% - 40px);
+    margin: 22px 20px 0;
+    padding: 0;
+    text-align: left;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--red);
+    cursor: pointer;
+  }
+  .toast .tag {
+    padding: 2px 6px;
+    background: var(--red);
+    color: var(--paper);
+    font-size: 9px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .toast {
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    padding: 13px 16px;
+    border: 1px solid rgba(15,118,110,0.12);
+    border-radius: 18px;
+    background: rgba(248,253,251,0.94);
+    color: var(--ink);
+    box-shadow: 0 12px 32px rgba(18,59,56,0.16);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    transform: translateY(18px) scale(0.98);
+    transition: opacity 0.28s ease, transform 0.36s cubic-bezier(.2,.8,.2,1);
+  }
+  .toast.on { transform: translateY(0) scale(1); }
+  .toast .tag {
+    flex-shrink: 0;
+    padding: 5px 9px;
+    border-radius: 999px;
+    letter-spacing: 0.8px;
+  }
+  .fall-preview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: calc(100% - 40px);
+    margin: 20px 20px 8px;
+    padding: 14px 16px;
+    border: 1px solid rgba(15,118,110,0.12);
+    border-radius: 18px;
+    background: rgba(255,255,255,0.55);
+    color: var(--green);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+  }
+  .fall-preview-copy { display: flex; flex-direction: column; gap: 4px; }
+  .fall-preview-copy strong { font-size: 12px; }
+  .fall-preview-copy small { color: var(--grey); font-size: 10px; }
+  .fall-preview-arrow { font-size: 22px; line-height: 1; }
+  .fall-flow-screen {
+    align-items: center;
+    padding: 76px 24px 42px;
+    text-align: center;
+  }
+  .fall-flow-back {
+    position: absolute;
+    top: 66px;
+    left: 24px;
+    padding: 8px 0;
+    border: 0;
+    background: none;
+    color: var(--grey);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .fall-flow-icon {
+    display: grid;
+    place-items: center;
+    width: 78px;
+    height: 78px;
+    margin: 30px auto 20px;
+    border-radius: 50%;
+    background: rgba(20,184,166,0.12);
+    color: var(--green);
+  }
+  .fall-flow-icon svg { width: 36px; height: 36px; }
+  .fall-flow-screen h1 {
+    margin: 0;
+    font-size: 30px;
+    line-height: 1.08;
+    letter-spacing: -0.8px;
+  }
+  .fall-flow-copy {
+    max-width: 290px;
+    margin: 12px auto 0;
+    color: var(--grey);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .fall-countdown {
+    display: grid;
+    place-items: center;
+    width: 92px;
+    height: 92px;
+    margin: 24px auto;
+    border: 1px solid rgba(20,184,166,0.3);
+    border-radius: 50%;
+    background: rgba(255,255,255,0.66);
+    color: var(--green);
+    font-size: 34px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 8px 25px rgba(15,118,110,0.08);
+  }
+  .fall-flow-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 20px; }
+  .fall-flow-actions .btn { flex: initial; min-height: 52px; border-radius: 16px; }
+  .fall-help-btn {
+    border-color: rgba(184,75,68,0.2);
+    background: rgba(255,255,255,0.55);
+    color: #A63C36;
+  }
+  .fall-alert-card {
+    width: 100%;
+    margin-top: 26px;
+    padding: 18px;
+    border: 1px solid rgba(15,118,110,0.13);
+    border-radius: 18px;
+    background: rgba(255,255,255,0.68);
+    text-align: left;
+  }
+  .fall-alert-card span { display: block; color: var(--grey); font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
+  .fall-alert-card strong { display: block; margin-top: 5px; font-size: 16px; }
+  .fall-demo-note {
+    margin: 18px 0 0;
+    color: var(--grey);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .fall-flow-screen.alert-sent {
+    background:
+      radial-gradient(ellipse at 50% 12%, rgba(20,184,166,0.2), transparent 38%),
+      linear-gradient(160deg, #102B29 0%, #163936 52%, #1B4540 100%);
+    color: #F4FBF9;
+  }
+  .alert-sent .fall-flow-back { color: #D0E6E1; }
+  .alert-sent .fall-flow-icon {
+    background: rgba(248,204,106,0.14);
+    color: #FFD47A;
+    box-shadow: 0 0 0 8px rgba(248,204,106,0.05);
+  }
+  .alert-sent .fall-flow-copy { color: #D2E4E0; }
+  .alert-sent .fall-alert-card {
+    border-color: rgba(180,225,216,0.22);
+    background: rgba(6,25,24,0.48);
+    box-shadow: 0 14px 34px rgba(0,0,0,0.16);
+  }
+  .alert-sent .fall-alert-card span { color: #B8D3CD; }
+  .alert-sent .fall-alert-card strong { color: #FFFFFF; font-size: 19px; }
+  .alert-sent .fall-demo-note {
+    padding: 11px 14px;
+    border: 1px solid rgba(255,212,122,0.3);
+    border-radius: 12px;
+    background: rgba(255,212,122,0.09);
+    color: #FFE6AF;
+  }
+  .alert-sent .fall-flow-actions .btn.ink {
+    border-color: #4ED4C1;
+    background: linear-gradient(120deg, #0E9D8F, #20BDA9);
+    color: #072B28;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.22);
+  }
+  .alert-sent .fall-flow-actions .btn:not(.ink) {
+    border-color: rgba(217,240,235,0.45);
+    background: rgba(255,255,255,0.08);
+    color: #F4FBF9;
+  }
+  .frame.dark-mode .statusbar { color: #F4FBF9; }
+  .frame.dark-mode .statusbar svg { filter: brightness(0) invert(1); }
+  .frame.alert-mode .tabbar, .frame.alert-mode .home-indicator { display: none; }
+
+  /* -------------------------------------------------------------------- */
+  /* Trust screen: a nutrition label for a safety device. Nothing on this */
+  /* screen is cosmetic — every number traces back to a real CRACI run    */
+  /* via data/trust-panel.js. If the record is missing the UI says so     */
+  /* rather than painting a comfortable fiction.                          */
+  /* -------------------------------------------------------------------- */
+  .seal {
+    margin: 10px 20px 0;
+    display: flex;
+    gap: 16px;
+    padding: 20px 16px 16px;
+    background: var(--paper-2);
+    border: 1.5px solid var(--ink);
+    position: relative;
+  }
+  .seal::before {
+    content: "Verified";
+    position: absolute;
+    top: -8px;
+    left: 14px;
+    padding: 1px 8px;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+  }
+  /* CRACI band: sits flush under the seal like the certifying body's line
+     on a physical label. Text wordmark only; it is not CRACI's logo. */
+  .craci-band {
+    margin: 0 20px;
+    padding: 9px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    background: var(--ink);
+    color: var(--paper);
+    border: 1.5px solid var(--ink);
+    border-top: none;
+  }
+  .craci-band--alone { border-top: 1.5px solid var(--ink); margin-bottom: 16px; }
+  .craci-by {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+  .craci-by small {
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: var(--faint);
+    white-space: nowrap;
+  }
+  .craci-mark {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 2.6px;
+    line-height: 1;
+  }
+  .craci-where {
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--faint);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Green tick + "Verified", shown per component. Only rendered green when
+     the data says the run was clean; otherwise it reads "Being checked". */
+  .verified {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--green);
+    white-space: nowrap;
+  }
+  .verified svg { width: 13px; height: 13px; display: block; }
+  .verified.is-pending { color: var(--grey); }
+
+  .seal-badge {
+    width: 48px;
+    height: 52px;
+    flex-shrink: 0;
+    color: var(--green);
+  }
+  .seal-text { min-width: 0; flex: 1; }
+  .seal-title {
+    margin: 0 0 6px;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.6px;
+    line-height: 1.05;
+  }
+  .seal-sub {
+    margin: 0 0 10px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--ink);
+  }
+  .seal-sub b { font-weight: 700; }
+  .seal-foot {
+    margin: 0;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: var(--grey);
+    line-height: 1.5;
+  }
+  .seal-foot-time {
+    color: var(--mid);
+    display: block;
+    margin-top: 2px;
+    letter-spacing: 0.4px;
+    text-transform: none;
+    font-weight: 500;
+    font-size: 10px;
+  }
+
+  .groups {
+    margin: 0 20px;
+  }
+  .group-row {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--rule);
+    padding: 14px 0;
+    text-align: left;
+    font-family: inherit;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .group-row:first-of-type { border-top: 1px solid var(--ink); }
+  .group-row:last-of-type { border-bottom: 1px solid var(--ink); }
+  .group-head {
+    display: grid;
+    grid-template-columns: 34px 1fr auto;
+    gap: 14px;
+    align-items: start;
+  }
+  .group-num {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.5px;
+  }
+  .group-body { min-width: 0; padding-top: 2px; }
+  .group-title {
+    margin: 0 0 3px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.2px;
+  }
+  .group-blurb {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--grey);
+  }
+  .group-chev {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: var(--mid);
+    padding-top: 8px;
+  }
+  .group-row.is-open .group-chev::after { content: "Hide"; }
+  .group-row:not(.is-open) .group-chev::after { content: "Show"; }
+  .group-detail {
+    display: none;
+    margin: 10px 0 2px 44px;
+    padding: 10px 12px;
+    background: var(--block);
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+  .group-row.is-open .group-detail { display: block; }
+  .comp-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .comp-row:first-child { border-top: none; padding-top: 0; }
+  .comp-row:last-child { padding-bottom: 0; }
+  .comp-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .comp-name {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    letter-spacing: -0.3px;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .comp-where {
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    color: var(--mid);
+  }
+
+  .trust-meta {
+    margin: 22px 20px 24px;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+  }
+  .trust-meta p {
+    margin: 0 0 12px;
+    font-size: 11px;
+    line-height: 1.55;
+    color: var(--grey);
+  }
+  .trust-meta p strong { color: var(--ink); }
+  .trust-meta-stats {
+    display: flex;
+    gap: 16px;
+    margin: 0 0 14px;
+    padding: 0;
+    list-style: none;
+  }
+  .trust-meta-stats li {
+    flex: 1;
+    padding: 10px 0 8px;
+    border-top: 1px solid var(--ink);
+  }
+  .trust-meta-stats b {
+    display: block;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 4px;
+  }
+  .trust-meta-stats span {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+  .trust-meta-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--ink);
+    padding: 8px 0;
+    cursor: pointer;
+    border-bottom: 1px solid var(--ink);
+  }
+
+  /* Raw technical list sub-screen ------------------------------------- */
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--grey);
+    padding: 0;
+    margin: 0 20px 6px;
+    cursor: pointer;
+  }
+  .raw-lead {
+    margin: 0 20px 16px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--grey);
+  }
+  .raw-section {
+    margin: 0 20px 18px;
+  }
+  .raw-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 0 6px;
+    border-bottom: 1px solid var(--ink);
+  }
+  .raw-head h3 {
+    margin: 0;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .raw-head-n {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    color: var(--mid);
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+  }
+  .raw-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .raw-item:last-child { border-bottom: 1px solid var(--ink); }
+  .raw-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .raw-name {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11.5px;
+    letter-spacing: -0.3px;
+    overflow-wrap: anywhere;
+  }
+  .raw-src {
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--mid);
+  }
+  .raw-note {
+    margin: 4px 20px 24px;
+    padding: 12px 14px;
+    background: var(--paper-2);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--grey);
+  }
+  .raw-note strong {
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .screen {
+    background:
+      radial-gradient(ellipse at 100% 0%, rgba(20,184,166,0.12), transparent 42%),
+      linear-gradient(155deg, #F5FCFA 0%, #EAF8F5 52%, #E2F3EF 100%);
+  }
+  .status-disc.on { background: linear-gradient(145deg, #14B8A6, #0F766E); }
+  .switch:not(.is-off)::after { background: var(--aqua); }
+  .tab.is-active::before { background: var(--aqua); }
+  .primary-tag, .toast .tag.ok { background: var(--green); }
+  .btn.ink {
+    border-color: var(--green);
+    background: linear-gradient(120deg, #0F766E, #14B8A6);
+    color: #fff;
+  }
+  .btn, .control, .status, .seal {
+    border-radius: 14px;
+  }
+  .status, .control {
+    background-color: rgba(255,255,255,0.72);
+    box-shadow: 0 8px 24px rgba(15,118,110,0.06);
+  }
+  .auth-screen {
+    padding: 66px 25px 28px;
+    background:
+      radial-gradient(ellipse at 90% 8%, rgba(20,184,166,0.2), transparent 38%),
+      linear-gradient(155deg, #F5FCFA 0%, #E7F7F3 55%, #DDF2ED 100%);
+  }
+  .auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 20px 0 30px;
+  }
+  .auth-logo {
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    box-shadow: 0 8px 22px rgba(15,118,110,0.14);
+  }
+  .auth-wordmark {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--green);
+  }
+  .auth-title {
+    margin: 0;
+    font-size: 34px;
+    line-height: 1.03;
+    letter-spacing: -1.2px;
+  }
+  .auth-copy {
+    margin: 10px 0 23px;
+    max-width: 290px;
+    color: var(--grey);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .auth-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 4px;
+    margin-bottom: 12px;
+    border-radius: 14px;
+    background: rgba(15,118,110,0.08);
+  }
+  .auth-switch button {
+    border: 0;
+    border-radius: 11px;
+    padding: 12px;
+    background: transparent;
+    color: var(--grey);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .auth-switch button.is-active {
+    background: rgba(255,255,255,0.9);
+    color: var(--ink);
+    box-shadow: 0 2px 9px rgba(18,59,56,0.08);
+  }
+  .auth-form .field, .profile-form .field {
+    padding: 13px 15px;
+    margin: 10px 0;
+    border: 1px solid rgba(15,118,110,0.16);
+    border-radius: 13px;
+    background: rgba(255,255,255,0.68);
+  }
+  .auth-form .field-label, .profile-form .field-label { margin-bottom: 7px; }
+  .auth-form .field-input, .profile-form .field-input, .profile-form .field-select {
+    font-size: 16px;
+  }
+  .auth-form .btn, .profile-form .btn {
+    width: 100%;
+    margin-top: 14px;
+    border-radius: 14px;
+    min-height: 52px;
+  }
+  .auth-error {
+    min-height: 18px;
+    margin: 10px 0 0;
+    color: #A12B27;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .auth-note {
+    margin: 17px 0 0;
+    color: var(--grey);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .setup-step {
+    padding: 10px 24px 0;
+    color: var(--green);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .setup-intro {
+    margin: 0 24px 8px;
+    color: var(--grey);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .profile-shortcut {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(20,184,166,0.12);
+    color: var(--green);
+    cursor: pointer;
+  }
+  .profile-shortcut svg { width: 21px; height: 21px; display: block; }
+  .profile-summary {
+    margin: 4px 20px 0;
+    padding: 16px;
+    border: 1px solid rgba(15,118,110,0.14);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.58);
+  }
+  .profile-summary .spec { padding: 9px 0; }
+  .profile-summary .spec:last-child { border-bottom: 0; }
+  .logout-btn {
+    width: calc(100% - 40px);
+    margin: 22px 20px 0;
+    padding: 13px;
+    border: 1px solid var(--rule);
+    border-radius: 13px;
+    background: rgba(255,255,255,0.42);
+    color: var(--grey);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .frame.auth-mode .tabbar, .frame.auth-mode .home-indicator { display: none; }
+  @media (max-width: 500px) {
+    .frame { background: var(--paper); }
+    .auth-screen { padding-top: 54px; }
+  }
+  .screen {
+    background:
+      radial-gradient(ellipse at 92% 6%, rgba(20,184,166,0.12), transparent 34%),
+      linear-gradient(160deg, #F5FCFA 0%, #EAF8F5 56%, #E2F3EF 100%);
+  }
+  .h-title { letter-spacing: -1.1px; }
+  .strip .back, .section-head, .specs { border-color: rgba(18,59,56,0.14); }
+  .status {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 6px 20px 10px;
+    margin: 0;
+    text-align: center;
+  }
+  .status-top { justify-content: center; }
+  .status-text { flex: initial; }
+  .status-title { font-size: 15px; letter-spacing: 0.6px; text-transform: uppercase; }
+  .status-sub { min-height: 36px; margin: 7px auto 0; max-width: 270px; }
+  .status-disc, .status-foot { display: none; }
+  .safety-orb {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 204px;
+    height: 204px;
+    margin: 18px auto 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 26%, #55D8C8 0%, #19B9A8 32%, #0F766E 78%);
+    color: #fff;
+    box-shadow: 0 18px 38px rgba(15,118,110,0.24), inset 0 2px 6px rgba(255,255,255,0.38);
+    cursor: pointer;
+    transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.25s ease;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .safety-orb::before, .safety-orb::after {
+    content: "";
+    position: absolute;
+    inset: -11px;
+    border: 1px solid rgba(20,184,166,0.26);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .safety-orb::after { inset: -22px; opacity: 0.58; }
+  .safety-orb:hover { transform: scale(1.025); box-shadow: 0 22px 45px rgba(15,118,110,0.3), inset 0 2px 6px rgba(255,255,255,0.38); }
+  .safety-orb:active { transform: scale(0.97); }
+  .safety-orb:focus-visible { outline: 3px solid var(--ink); outline-offset: 7px; }
+  .safety-orb.is-off {
+    background: radial-gradient(circle at 34% 26%, #A6BDB8 0%, #738F89 38%, #496660 82%);
+    box-shadow: 0 16px 34px rgba(18,59,56,0.18), inset 0 2px 6px rgba(255,255,255,0.35);
+  }
+  .safety-orb.is-off::before, .safety-orb.is-off::after { border-color: rgba(88,113,109,0.22); }
+  .orb-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .orb-icon { width: 72px; height: 72px; border-radius: 50%; filter: drop-shadow(0 2px 4px rgba(18,59,56,0.12)); }
+  .orb-action { font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; }
+  .orb-caption {
+    margin: 28px 20px 0;
+    text-align: center;
+    color: var(--grey);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .control {
+    width: calc(100% - 40px);
+    margin: 18px 20px 0;
+    padding: 16px 18px;
+    border: 1px solid rgba(15,118,110,0.12);
+    border-radius: 20px;
+    background: rgba(255,255,255,0.7);
+    box-shadow: 0 8px 24px rgba(15,118,110,0.06);
+  }
+  .switch, .switch::after { border-radius: 999px; }
+  .switch { background: rgba(15,118,110,0.18); }
+  .switch::after { top: 3px; width: 26px; height: 26px; }
+  .switch.is-off::after { background: #849B96; }
+  .specs {
+    margin: 20px 24px 0;
+    padding-top: 4px;
+    border-top: 1px solid rgba(18,59,56,0.12);
+  }
+  .spec { border-color: rgba(18,59,56,0.1); padding: 12px 2px; }
+  .spec-key { letter-spacing: 1.1px; }
+  .section { margin-top: 22px; }
+  .section-head { border-bottom-width: 1px; padding-bottom: 9px; }
+  .contact { border-color: rgba(18,59,56,0.1); }
+  .tabbar {
+    border-top-color: rgba(18,59,56,0.12);
+    background: rgba(247,252,250,0.9);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+  .tab.is-active::before { border-radius: 999px; height: 3px; }
+  .sheet {
+    border: 0;
+    border-radius: 28px 28px 0 0;
+    box-shadow: 0 -12px 44px rgba(18,59,56,0.16);
+  }
+  .btn { border-radius: 14px; }
+  .sheet-actions .btn { border-radius: 16px; }
+  .seal { border-radius: 20px; }
+  .craci-band { border-radius: 0 0 12px 12px; }
+  .craci-band--alone { border-radius: 12px; }
+  .group-num { border-radius: 9px; }
+  .group-detail, .raw-note { border-radius: 12px; }
+  .primary-tag { border-radius: 999px; }
+  .spec-val .dot { border-radius: 50%; }
+  .field-input, .field-select { border-radius: 8px; }
+  .section-head h2, .section-head .action, .strip .label { letter-spacing: 1.2px; }
+  @keyframes orb-breathe {
+    0%, 100% { box-shadow: 0 18px 38px rgba(15,118,110,0.22), inset 0 2px 6px rgba(255,255,255,0.38); }
+    50% { box-shadow: 0 22px 46px rgba(15,118,110,0.3), inset 0 2px 6px rgba(255,255,255,0.42); }
+  }
+  .safety-orb:not(.is-off) { animation: orb-breathe 3.8s ease-in-out infinite; }
+  .screen { padding-top: var(--screen-top); padding-bottom: var(--screen-bottom); }
+  .screen > * { flex-shrink: 0; }
+  .auth-screen { padding-top: calc(var(--screen-top) + 12px); padding-bottom: 28px; }
+  .fall-flow-screen { padding-top: calc(var(--screen-top) + 22px); padding-bottom: 32px; }
+  .fall-flow-back { top: calc(var(--screen-top) + 12px); }
+  .profile-shortcut { width: 44px; height: 44px; flex-shrink: 0; }
+  .field-input:focus-visible, .field-select:focus-visible {
+    outline: 2px solid var(--green);
+    outline-offset: 4px;
+  }
+  @media (max-width: 500px) {
+    :root {
+      --screen-top: calc(env(safe-area-inset-top, 0px) + 12px);
+      --screen-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+    }
+    html, body { height: 100%; }
+    .frame {
+      height: 100vh;
+      height: 100dvh;
+    }
+    .statusbar, .notch, .home-indicator { display: none; }
+    .screen {
+      overscroll-behavior-y: contain;
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+      scroll-padding-bottom: 20px;
+    }
+    .tabbar {
+      height: var(--screen-bottom);
+      padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+    }
+    .auth-screen {
+      padding-left: calc(24px + env(safe-area-inset-left, 0px));
+      padding-right: calc(24px + env(safe-area-inset-right, 0px));
+      padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    }
+    .frame.auth-mode .screen, .fall-flow-screen {
+      padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    }
+    .fall-flow-screen {
+      padding-left: calc(24px + env(safe-area-inset-left, 0px));
+      padding-right: calc(24px + env(safe-area-inset-right, 0px));
+    }
+    .sheet {
+      max-height: calc(100% - var(--screen-top));
+      overflow-y: auto;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    }
+    .toast { bottom: calc(var(--screen-bottom) + 12px); }
+    .strip .back, .fall-flow-back, .section-head .action { min-height: 44px; }
+    .h-title { margin-top: 16px; margin-bottom: 20px; font-size: clamp(28px, 8vw, 32px); }
+    #screen-home .h-title { margin-top: 14px; margin-bottom: 18px; }
+    .safety-orb { width: clamp(164px, 49vw, 204px); height: clamp(164px, 49vw, 204px); }
+    .orb-caption { font-size: 10px; letter-spacing: 0.8px; text-transform: none; }
+    .control { padding: 14px 16px; }
+    .control-text { flex: 1; }
+    .control-val { font-size: 13px; }
+    .auth-brand { margin-top: 12px; margin-bottom: 24px; }
+    .auth-error { margin-left: 20px; margin-right: 20px; }
+    .auth-form .auth-error { margin-left: 0; margin-right: 0; }
+    .form-actions .btn { width: auto; min-width: 0; }
+    .comp-row { flex-wrap: wrap; gap: 6px; }
+    .comp-name, .profile-email, #profile-email { overflow-wrap: anywhere; }
+    .craci-band { flex-wrap: wrap; }
+  }
+  @media (max-width: 500px) and (max-height: 740px) {
+    #screen-home .h-title { margin-top: 8px; margin-bottom: 12px; }
+    #screen-home .status { padding-top: 0; padding-bottom: 0; }
+    .safety-orb { width: 164px; height: 164px; }
+    .orb-icon { width: 64px; height: 64px; }
+    .orb-caption { margin-top: 25px; min-height: 0; }
+    #screen-home .section { margin-top: 18px; }
+    .fall-flow-icon { margin-top: 26px; margin-bottom: 16px; width: 64px; height: 64px; }
+    .fall-flow-screen h1 { font-size: 28px; }
+    .fall-countdown { margin: 18px auto; width: 78px; height: 78px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="frame" aria-label="Safy app">
+  <div class="notch"></div>
+
+  <!-- status bar -->
+  <div class="statusbar" aria-hidden="true">
+    <span class="time">9:41</span>
+    <div class="trio">
+      <!-- signal -->
+      <svg width="18" height="10" viewBox="0 0 18 10">
+        <rect x="0"  y="7" width="3" height="3" fill="#141414"/>
+        <rect x="5"  y="4" width="3" height="6" fill="#141414"/>
+        <rect x="10" y="1" width="3" height="9" fill="#141414"/>
+        <rect x="15" y="1" width="3" height="9" fill="#141414" opacity="0.3"/>
+      </svg>
+      <!-- wifi -->
+      <svg width="17" height="11" viewBox="0 0 17 11">
+        <path d="M8.5 0C4.9 0 1.6 1.3 0 3l2 2c1.7-1.5 4-2.3 6.5-2.3S13 3.5 14.7 5l2-2C15.1 1.3 11.8 0 8.5 0Zm0 4C6.1 4 4 4.9 2.6 6.2l2 2A5 5 0 0 1 8.5 6.8c1.4 0 2.8.5 3.9 1.4l2-2C13 4.9 10.9 4 8.5 4Zm0 4.1a2.1 2.1 0 0 0-1.7.8l1.7 1.7 1.7-1.7a2.1 2.1 0 0 0-1.7-.8Z" fill="#141414"/>
+      </svg>
+      <!-- battery -->
+      <svg width="27" height="13" viewBox="0 0 27 13">
+        <rect x="0.5" y="0.5" width="22" height="12" rx="2.5" ry="2.5" fill="none" stroke="#141414"/>
+        <rect x="2"   y="2"   width="17" height="9" fill="#141414"/>
+        <rect x="23.5" y="4" width="2" height="5" rx="0.8" fill="#141414"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- SCREEN: Sign in / create account                                   -->
+  <div class="screen auth-screen" id="screen-auth">
+    <div class="auth-brand">
+      <img class="auth-logo" src="logo/safy-icon.svg" alt="Safy logo" />
+      <span class="auth-wordmark">Safy</span>
+    </div>
+    <h1 class="auth-title" id="auth-title">Welcome back</h1>
+    <p class="auth-copy" id="auth-copy">Sign in to keep your safety profile and emergency contacts close.</p>
+    <div class="auth-switch" role="tablist" aria-label="Account access">
+      <button type="button" class="is-active" id="login-tab" onclick="setAuthMode('login')">Log in</button>
+      <button type="button" id="register-tab" onclick="setAuthMode('register')">Create account</button>
+    </div>
+    <form class="auth-form" id="auth-form" onsubmit="authenticate(event)">
+      <label class="field">
+        <span class="field-label">Email</span>
+        <input class="field-input" type="email" name="email" autocomplete="email" placeholder="you@example.com" required />
+      </label>
+      <label class="field">
+        <span class="field-label">Password</span>
+        <input class="field-input" type="password" name="password" autocomplete="current-password" minlength="8" placeholder="At least 8 characters" required />
+      </label>
+      <p class="auth-error" id="auth-error" role="alert"></p>
+      <button class="btn ink" id="auth-submit" type="submit">Log in</button>
+    </form>
+    <p class="auth-note">Prototype access is stored only in this browser. No data is sent to a server; use a demo password, not a password you use elsewhere.</p>
+  </div>
+
+  <!-- SCREEN: First-time profile setup -->
+  <div class="screen" id="screen-setup">
+    <div class="setup-step">Step 1 of 1 · Your safety profile</div>
+    <h1 class="h-title" style="padding-top:12px;">Set up your profile</h1>
+    <p class="setup-intro">Tell us which glasses you use and who should be contacted if you need help.</p>
+    <form class="profile-form" id="setup-form" onsubmit="saveProfile(event, 'setup')">
+      <div class="form">
+        <label class="field">
+          <span class="field-label">Your name</span>
+          <input class="field-input" type="text" name="userName" autocomplete="name" placeholder="Full name" required />
+        </label>
+        <label class="field">
+          <span class="field-label">Glasses model</span>
+          <select class="field-select" name="glassesModel" required>
+            <option value="" disabled selected>Select your glasses</option>
+            <option>Meta Ray-Ban Wayfarer</option>
+            <option>Meta Ray-Ban Headliner</option>
+            <option>Oakley Meta HSTN</option>
+            <option>Other smart glasses</option>
+            <option>I don’t have them yet</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">Emergency contact</span>
+          <input class="field-input" type="text" name="contactName" autocomplete="off" placeholder="Contact’s full name" required />
+        </label>
+        <label class="field">
+          <span class="field-label">Relationship</span>
+          <select class="field-select" name="contactRelation" required>
+            <option value="" disabled selected>Choose relationship</option>
+            <option>Partner</option><option>Parent</option><option>Sibling</option>
+            <option>Friend</option><option>Caregiver</option><option>Other</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">Emergency contact phone</span>
+          <input class="field-input" type="tel" name="contactPhone" autocomplete="tel" placeholder="+39 333 123 4567" required />
+        </label>
+      </div>
+      <p class="auth-error" id="setup-error" role="alert"></p>
+      <div class="form-actions"><button class="btn ink" type="submit">Save and continue</button></div>
+    </form>
+    <p class="form-note">Your contact details stay in this browser in this prototype. Emergency alerts are not sent by this demo.</p>
+  </div>
+
+  <!-- SCREEN: Profile settings -->
+  <div class="screen" id="screen-profile">
+    <div class="strip">
+      <button class="back" onclick="go('home')">Home</button>
+      <span class="page">Profile</span>
+    </div>
+    <h1 class="h-title">Your profile</h1>
+    <p class="setup-intro" id="profile-email"></p>
+    <form class="profile-form" id="profile-form" onsubmit="saveProfile(event, 'profile')">
+      <div class="form">
+        <label class="field">
+          <span class="field-label">Your name</span>
+          <input class="field-input" type="text" name="userName" autocomplete="name" required />
+        </label>
+        <label class="field">
+          <span class="field-label">Glasses model</span>
+          <select class="field-select" name="glassesModel" required>
+            <option>Meta Ray-Ban Wayfarer</option>
+            <option>Meta Ray-Ban Headliner</option>
+            <option>Oakley Meta HSTN</option>
+            <option>Other smart glasses</option>
+            <option>I don’t have them yet</option>
+          </select>
+        </label>
+      </div>
+      <p class="auth-error" id="profile-error" role="alert"></p>
+      <div class="form-actions"><button class="btn ink" type="submit">Save profile</button></div>
+    </form>
+    <button class="logout-btn" type="button" onclick="logout()">Log out</button>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- SCREEN: Home                                                       -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="screen on" id="screen-home">
+    <div class="strip">
+      <span class="label">Safy · Home</span>
+      <button type="button" class="profile-shortcut" aria-label="My profile" title="My profile" onclick="go('profile')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="8" r="3.5"/>
+          <path d="M4.5 20c.7-3.4 3.4-5.3 7.5-5.3s6.8 1.9 7.5 5.3"/>
+        </svg>
+      </button>
+    </div>
+    <h1 class="h-title">Safy</h1>
+
+    <div class="status">
+      <div class="status-top">
+        <div class="status-text">
+          <p class="status-title" id="st-title">Protection is on</p>
+        </div>
+      </div>
+      <button type="button" class="safety-orb" id="fall-btn" aria-label="Deactivate fall protection" aria-pressed="true" onclick="ask('fall')">
+        <span class="orb-content">
+          <svg class="orb-icon" viewBox="0 0 1024 1024" fill="none" aria-hidden="true">
+            <g transform="translate(-22 0)">
+              <path d="M300 700 C360 765 450 790 535 780 C655 766 735 700 735 610 C735 515 650 482 525 455 C410 430 320 395 320 310 C320 238 385 196 470 196 C520 196 560 206 590 222" stroke="#FFFFFF" stroke-width="112" stroke-linecap="round"/>
+              <circle cx="730" cy="250" r="74" fill="#FFFFFF"/>
+            </g>
+          </svg>
+          <span class="orb-action" id="orb-action">Tap to pause</span>
+        </span>
+      </button>
+      <p class="status-sub orb-caption" id="st-sub">Fall protection active · no real alerts in this demo</p>
+    </div>
+
+    <button type="button" class="control" id="loc-btn" aria-label="Location sharing" aria-pressed="true" onclick="ask('loc')">
+      <span class="control-text">
+        <span class="control-label">Location sharing</span>
+        <span class="control-val" id="loc-val">On · sent with a fall alert</span>
+      </span>
+      <span class="switch" id="loc-sw" aria-hidden="true"></span>
+    </button>
+
+    <div class="section">
+      <div class="section-head">
+        <h2>Emergency contacts</h2>
+        <span class="section-head-meta">1 person</span>
+      </div>
+      <div id="home-contact-list"></div>
+    </div>
+    <button class="fall-preview" type="button" onclick="startFallDemo()">
+      <span class="fall-preview-copy">
+        <strong>Anteprima rilevamento caduta</strong>
+        <small>Prova il conto alla rovescia e l’avviso</small>
+      </span>
+      <span class="fall-preview-arrow" aria-hidden="true">›</span>
+    </button>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- SCREEN: Contacts                                                   -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="screen" id="screen-contacts">
+    <div class="strip">
+      <button class="back" onclick="go('home')">Home</button>
+      <span class="page">02</span>
+    </div>
+    <h1 class="h-title">Who gets alerted</h1>
+
+    <div class="section">
+      <div class="section-head">
+        <h2 id="contacts-count">1 contact</h2>
+      </div>
+      <div id="contacts-list"></div>
+    </div>
+
+    <p class="form-note">
+      Contact details are saved in this browser. Fall alerts, location sharing and
+      emergency messages are demo-only and are not actually sent.
+    </p>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- SCREEN: Edit contact                                               -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="screen" id="screen-edit">
+    <div class="strip">
+      <button class="back" onclick="go('contacts')">Contacts</button>
+      <span class="page">03</span>
+    </div>
+    <h1 class="h-title">Emergency contact</h1>
+
+    <form class="profile-form" id="contact-form" onsubmit="saveProfile(event, 'contact')">
+    <div class="form">
+      <label class="field">
+        <span class="field-label">Full name</span>
+        <input class="field-input" type="text" name="contactName" autocomplete="off" required />
+      </label>
+      <label class="field">
+        <span class="field-label">Relationship</span>
+        <select class="field-select" name="contactRelation" required>
+          <option>Partner</option>
+          <option>Parent</option>
+          <option>Sibling</option>
+          <option>Friend</option>
+          <option>Caregiver</option>
+          <option>Other</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">Phone</span>
+        <input class="field-input" type="tel" name="contactPhone" autocomplete="off" required />
+      </label>
+    </div>
+
+    <p class="auth-error" id="contact-error" role="alert"></p>
+    <div class="form-actions">
+      <button class="btn" type="button" onclick="go('contacts')">Cancel</button>
+      <button class="btn ink" type="submit">Save contact</button>
+    </div>
+    </form>
+
+    <p class="form-note">
+      These changes update only your emergency contact, not your personal profile.
+      Details stay in this browser; this demo does not send real alerts.
+    </p>
+
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- Confirm-turn-off sheet                                             -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="scrim" id="scrim" onclick="closeSheet()"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-row">
+      <div class="sheet-triangle">
+        <svg width="36" height="32" viewBox="0 0 36 32" aria-hidden="true">
+          <polygon points="18,1 35,30 1,30" fill="#FCCC0A" stroke="#141414" stroke-width="1.5" stroke-linejoin="miter"/>
+          <text x="18" y="25" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="900" font-size="18" fill="#141414">!</text>
+        </svg>
+      </div>
+      <span class="sheet-strip">Warning · Action required</span>
+    </div>
+    <!-- Title, body and list are filled in by openSheet() for whichever
+         setting is being turned off (fall detection or location sharing). -->
+    <h2 class="sheet-title" id="sheet-title"></h2>
+    <p class="sheet-body" id="sheet-body"></p>
+    <hr class="sheet-divider"/>
+    <ul class="sheet-list" id="sheet-list"></ul>
+    <div class="sheet-actions">
+      <button class="btn" id="sheet-keep" onclick="closeSheet()">Keep it on</button>
+      <button class="btn danger" id="sheet-confirm" onclick="confirmOff()">Turn off</button>
+    </div>
+  </div>
+
+  <!-- Toast after a setting changes -->
+  <div class="toast" id="toast" role="status">
+    <span class="tag" id="toast-tag">Off</span>
+    <span id="toast-text"></span>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- SCREEN: Trust — a nutrition label for a safety device.             -->
+  <!-- Every figure comes from data/trust-panel.js, which is regenerated  -->
+  <!-- from the CycloneDX SBOMs CRACI records during each build.          -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="screen" id="screen-trust">
+    <div class="strip">
+      <span class="label">Safy &middot; What&rsquo;s inside</span>
+      <span class="page">03</span>
+    </div>
+    <h1 class="h-title">What&rsquo;s inside</h1>
+
+    <div class="seal" id="trust-seal">
+      <div class="seal-badge" aria-hidden="true">
+        <svg viewBox="0 0 22 24" width="48" height="52" fill="none">
+          <path d="M11 1 L1 5 V12 C1 18 5 22 11 23 C17 22 21 18 21 12 V5 Z" fill="currentColor"/>
+          <path d="M6.5 12 L9.8 15 L15.5 9" stroke="#F1FAF8" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
+        </svg>
+      </div>
+      <div class="seal-text">
+        <p class="seal-title" id="trust-headline">Verified clean</p>
+        <p class="seal-sub">
+          <b id="trust-runtime-n">&mdash;</b> pieces run on your glasses.
+          <span id="trust-vuln-line">Checking&hellip;</span>
+        </p>
+        <p class="seal-foot">
+          Checked <span id="trust-ago">&mdash;</span>
+          <span class="seal-foot-time" id="trust-when">&mdash;</span>
+        </p>
+      </div>
+    </div>
+    <div class="craci-band" id="craci-band">
+      <span class="craci-by"><small>Built and verified by</small><span class="craci-mark">CRACI</span></span>
+      <span class="craci-where">Helsinki</span>
+    </div>
+
+    <div class="section" style="margin-top: 22px;">
+      <div class="section-head">
+        <h2>What each piece does</h2>
+      </div>
+      <div class="groups" id="trust-groups" role="list">
+        <p style="margin: 14px 0; font-size: 12px; color: var(--grey);">Loading record&hellip;</p>
+      </div>
+    </div>
+
+    <div class="trust-meta">
+      <ul class="trust-meta-stats" id="trust-stats">
+        <li><b id="trust-stat-pkgs">&mdash;</b><span>Packages checked</span></li>
+        <li><b id="trust-stat-vulns">&mdash;</b><span>Known issues</span></li>
+        <li><b id="trust-stat-jobs">&mdash;</b><span>Build jobs</span></li>
+      </ul>
+      <p>
+        This record is built from a <strong>software bill of materials</strong>
+        recorded by <strong>CRACI</strong>, a Helsinki supply chain security
+        company, while the glasses software is being built. Every piece is
+        checked against known issues, and re-checked when new ones are
+        published.
+      </p>
+      <button type="button" class="trust-meta-link" id="raw-link" onclick="go('rawsbom')">
+        See the full technical list &rarr;
+      </button>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- SCREEN: Raw technical list — honest view for the one-in-a-hundred  -->
+  <!-- person who wants to see the real component names.                  -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="screen" id="screen-rawsbom">
+    <div class="strip">
+      <span class="label">Safy &middot; Technical list</span>
+      <span class="page">04</span>
+    </div>
+    <button type="button" class="back-btn" id="raw-back" onclick="go('trust')">
+      &larr; Back to what&rsquo;s inside
+    </button>
+    <h1 class="h-title">Technical list</h1>
+
+    <div class="craci-band craci-band--alone" id="craci-band-raw">
+      <span class="craci-by"><small>Verified by</small><span class="craci-mark">CRACI</span></span>
+      <span class="craci-where">Build-time SBOM</span>
+    </div>
+
+    <p class="raw-lead">
+      Every software component running in the product, grouped by where it
+      runs. This is what CRACI recorded during the build.
+    </p>
+
+    <div class="raw-section">
+      <div class="raw-head">
+        <h3>On the server</h3>
+        <span class="raw-head-n" id="raw-server-n">&mdash;</span>
+      </div>
+      <div id="raw-server"></div>
+    </div>
+
+    <div class="raw-section">
+      <div class="raw-head">
+        <h3>On the glasses</h3>
+        <span class="raw-head-n" id="raw-glasses-n">&mdash;</span>
+      </div>
+      <div id="raw-glasses"></div>
+    </div>
+
+    <p class="raw-note">
+      <strong id="raw-dev-n">&mdash;</strong> developer tools were used to
+      build this software but do not run in the product and are not shipped
+      to your glasses.
+    </p>
+  </div>
+
+  <!-- Fall detected: countdown, cancel, or simulate an emergency alert. -->
+  <div class="screen fall-flow-screen" id="screen-fall-detected">
+    <button class="fall-flow-back" type="button" onclick="go('home')">← Home</button>
+    <div class="fall-flow-icon" aria-hidden="true">
+      <svg viewBox="0 0 36 36" fill="none">
+        <path d="M18 4 33 31H3L18 4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M18 13v8m0 4h.01" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <h1>Caduta rilevata</h1>
+    <p class="fall-flow-copy">Va tutto bene? Se non rispondi, prepareremo un avviso per il tuo contatto di emergenza.</p>
+    <div class="fall-countdown" id="fall-countdown" role="timer" aria-live="polite">20</div>
+    <p class="fall-flow-copy">L’avviso partirà al termine del conto alla rovescia.</p>
+    <div class="fall-flow-actions">
+      <button class="btn ink" type="button" onclick="cancelFallDemo()">Sto bene</button>
+      <button class="btn fall-help-btn" type="button" onclick="sendFallAlert()">Chiedi aiuto ora</button>
+    </div>
+    <p class="fall-demo-note">Anteprima demo: nessuna chiamata o notifica reale viene inviata.</p>
+  </div>
+
+  <div class="screen fall-flow-screen alert-sent" id="screen-fall-alert">
+    <button class="fall-flow-back" type="button" onclick="go('home')">← Home</button>
+    <div class="fall-flow-icon" aria-hidden="true">
+      <svg viewBox="0 0 36 36" fill="none">
+        <path d="M18 4 33 31H3L18 4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M18 13v8m0 4h.01" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <h1>Avviso inviato</h1>
+    <p class="fall-flow-copy">Il flusso reale avviserebbe il tuo contatto di emergenza e condividerebbe le informazioni utili.</p>
+    <div class="fall-alert-card">
+      <span>Contatto di emergenza</span>
+      <strong id="fall-alert-contact">Contatto non configurato</strong>
+      <span id="fall-alert-phone"></span>
+    </div>
+    <p class="fall-demo-note">Questa è un’anteprima: in questa demo l’avviso non viene inviato davvero.</p>
+    <div class="fall-flow-actions">
+      <button class="btn ink" type="button" onclick="go('home')">Torna alla home</button>
+      <button class="btn" type="button" onclick="startFallDemo()">Riprova l’anteprima</button>
+    </div>
+  </div>
+
+  <div class="screen fall-flow-screen" id="screen-fall-safe">
+    <button class="fall-flow-back" type="button" onclick="go('home')">← Home</button>
+    <div class="fall-flow-icon" aria-hidden="true">
+      <svg viewBox="0 0 36 36" fill="none">
+        <circle cx="18" cy="18" r="14" stroke="currentColor" stroke-width="2"/>
+        <path d="m11 18 5 5 9-10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <h1>Perfetto, ci siamo</h1>
+    <p class="fall-flow-copy">Hai annullato l’avviso. Il tuo contatto di emergenza non è stato notificato.</p>
+    <div class="fall-flow-actions">
+      <button class="btn ink" type="button" onclick="go('home')">Torna alla home</button>
+    </div>
+    <p class="fall-demo-note">Anteprima demo: nessuna notifica reale è stata inviata.</p>
+  </div>
+
+  <!-- Tab bar -->
+  <nav class="tabbar" aria-label="Sections">
+    <button class="tab is-active" data-tab="home" onclick="go('home')">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.6">
+        <path d="M10 1 L1 5 V10 C1 15 4.5 19 10 19 C15.5 19 19 15 19 10 V5 Z"/>
+      </svg>
+      Home
+    </button>
+    <button class="tab" data-tab="contacts" onclick="go('contacts')">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.6">
+        <circle cx="7" cy="7" r="3"/>
+        <path d="M1 18 C1 14 4 12 7 12 C10 12 13 14 13 18"/>
+        <circle cx="14" cy="6" r="2.2"/>
+        <path d="M11.5 11 C13 11 15 11 16 12 C18 13 19 15 19 17"/>
+      </svg>
+      Contacts
+    </button>
+    <button class="tab" data-tab="trust" onclick="go('trust')">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.6">
+        <path d="M10 1 L2 4 V10 C2 15 5 18.5 10 19 C15 18.5 18 15 18 10 V4 Z"/>
+        <path d="M6.5 10.5 L9 13 L13.5 8"/>
+      </svg>
+      Trust
+    </button>
+  </nav>
+
+  <div class="home-indicator"></div>
+</div>
+
+<script src="data/trust-panel.js"></script>
+<script>
+  const screens = ["auth", "setup", "profile", "home", "contacts", "edit", "trust", "rawsbom", "fall-detected", "fall-alert", "fall-safe"];
+  let fallCountdownTimer = null;
+  // Which tab in the bar should light up when we are on a given screen. Sub
+  // screens inherit from their parent so the bar never goes blank.
+  const TAB_FOR_SCREEN = {
+    home: "home",
+    contacts: "contacts",
+    edit: "contacts",
+    profile: "home",
+    trust: "trust",
+    rawsbom: "trust",
+  };
+  function go(name, updateUrl = true) {
+    if (name === "edit" && profile) {
+      fillProfileForm("contact-form", profile);
+      $("contact-error").textContent = "";
+    }
+    screens.forEach(s => {
+      document.getElementById("screen-" + s).classList.toggle("on", s === name);
+    });
+    if (name === "fall-alert") updateFallAlertContact();
+    const activeTab = TAB_FOR_SCREEN[name];
+    document.querySelectorAll(".tab").forEach(t => {
+      t.classList.toggle("is-active", t.dataset.tab === activeTab);
+    });
+    const frame = document.querySelector(".frame");
+    frame.classList.toggle("auth-mode", name === "auth" || name === "setup");
+    frame.classList.toggle("alert-mode", name.startsWith("fall-"));
+    frame.classList.toggle("dark-mode", name === "fall-alert");
+    if (name !== "fall-detected" && fallCountdownTimer !== null) {
+      clearInterval(fallCountdownTimer);
+      fallCountdownTimer = null;
+    }
+    if (updateUrl && window.location.hash !== "#/" + name) {
+      history.replaceState(null, "", "#/" + name);
+    }
+    if (frame) frame.scrollTop = 0;
+    document.querySelectorAll(".screen").forEach(s => s.scrollTop = 0);
+  }
+
+  // ---------------------------------------------------------------------
+  // Settings. Two things the wearer controls: fall detection and location
+  // sharing. Turning either one OFF needs a confirmation and tells the
+  // emergency contacts; turning it back ON is instant.
+  // The whole home screen is drawn from this one object by render(), so
+  // the slider, title, icon and status rows can never disagree.
+  // ---------------------------------------------------------------------
+  const state = { fall: true, loc: true };
+  let pending = null;      // which setting the open sheet is about
+  let toastTimer = null;
+
+  const COPY = {
+    fall: {
+      title: "Turn off fall detection?",
+      body: "The demo will stop showing fall monitoring as active. This prototype does not send real alerts.",
+      bullets: [
+        "<strong>Your emergency contact</strong> is saved in your profile but will not receive a notification from this demo.",
+        "You can switch the demo state back on from the home screen at any time.",
+      ],
+      toastOff: "Fall detection off in this demo. No alert was sent.",
+      toastOn: "Fall detection on in this demo.",
+    },
+    loc: {
+      title: "Turn off location sharing?",
+      body: "This demo will stop including location in its simulated alert. No real alerts or location are sent.",
+      bullets: [
+        "<strong>Your emergency contact</strong> stays saved in your profile.",
+        "You can switch the demo state back on from the home screen at any time.",
+      ],
+      toastOff: "Location sharing off in this demo. No alert was sent.",
+      toastOn: "Location sharing on in this demo.",
+    },
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const ACCOUNT_KEY = "upright.accounts.v1";
+  const SESSION_KEY = "upright.session.v1";
+  const PROFILE_KEY = "upright.profile.v1:";
+  const PASSWORD_ITERATIONS = 120000;
+  let authMode = "login";
+  let currentEmail = null;
+  let profile = null;
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    $("login-tab").classList.toggle("is-active", mode === "login");
+    $("register-tab").classList.toggle("is-active", mode === "register");
+    $("auth-title").textContent = mode === "login" ? "Welcome back" : "Your safety, in good hands";
+    $("auth-copy").textContent = mode === "login"
+      ? "Sign in to keep your safety profile and emergency contacts close."
+      : "Create an account to set up your glasses and emergency contact.";
+    $("auth-submit").textContent = mode === "login" ? "Log in" : "Create account";
+    $("auth-form").elements.password.autocomplete = mode === "login" ? "current-password" : "new-password";
+    $("auth-error").textContent = "";
+  }
+
+  function readAccounts() {
+    const accounts = JSON.parse(localStorage.getItem(ACCOUNT_KEY) || "{}");
+    if (!accounts || typeof accounts !== "object" || Array.isArray(accounts)) {
+      throw new Error("Saved account data is invalid. Clear this browser’s local app data and try again.");
+    }
+    return accounts;
+  }
+
+  function toBase64(bytes) {
+    return btoa(String.fromCharCode(...new Uint8Array(bytes)));
+  }
+
+  async function passwordHash(password, salt) {
+    if (!window.crypto || !window.crypto.subtle) {
+      throw new Error("Secure password support is unavailable. Open this app on localhost or HTTPS.");
+    }
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(password),
+      "PBKDF2",
+      false,
+      ["deriveBits"]
+    );
+    const hash = await crypto.subtle.deriveBits(
+      { name: "PBKDF2", salt, iterations: PASSWORD_ITERATIONS, hash: "SHA-256" },
+      key,
+      256
+    );
+    return toBase64(hash);
+  }
+
+  async function authenticate(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const email = String(new FormData(form).get("email") || "").trim().toLowerCase();
+    const password = String(new FormData(form).get("password") || "");
+    const submit = $("auth-submit");
+    $("auth-error").textContent = "";
+    submit.disabled = true;
+    submit.textContent = authMode === "login" ? "Signing in…" : "Creating account…";
+    try {
+      const accounts = readAccounts();
+      if (authMode === "register") {
+        if (accounts[email]) {
+          throw new Error("An account already exists for this email. Log in instead.");
+        }
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        accounts[email] = {
+          salt: toBase64(salt),
+          hash: await passwordHash(password, salt),
+          iterations: PASSWORD_ITERATIONS,
+        };
+        localStorage.setItem(ACCOUNT_KEY, JSON.stringify(accounts));
+      } else {
+        const account = accounts[email];
+        if (!account || typeof account.salt !== "string" || typeof account.hash !== "string") {
+          throw new Error("No account found for this email. Check the address or create an account.");
+        }
+        const salt = Uint8Array.from(atob(account.salt), (char) => char.charCodeAt(0));
+        const computed = await passwordHash(password, salt);
+        if (computed !== account.hash) throw new Error("Incorrect email or password.");
+      }
+      localStorage.setItem(SESSION_KEY, email);
+      form.reset();
+      currentEmail = email;
+      profile = readProfile(email);
+      if (profile) {
+        fillProfileForm("profile-form", profile);
+        updateProfileViews();
+        go("home");
+      } else {
+        fillProfileForm("setup-form", {});
+        go("setup");
+      }
+    } catch (error) {
+      $("auth-error").textContent = error instanceof Error
+        ? error.message
+        : "Could not access local account storage. Check your browser settings and try again.";
+    } finally {
+      submit.disabled = false;
+      submit.textContent = authMode === "login" ? "Log in" : "Create account";
+    }
+  }
+
+  function readProfile(email) {
+    const saved = localStorage.getItem(PROFILE_KEY + email);
+    return saved ? JSON.parse(saved) : null;
+  }
+
+  function fillProfileForm(formId, values) {
+    const form = $(formId);
+    Object.keys(values).forEach((key) => {
+      const field = form.elements.namedItem(key);
+      if (field) field.value = values[key];
+    });
+  }
+
+  function updateProfileViews() {
+    if (!profile) return;
+    $("profile-email").textContent = currentEmail || "";
+    const contact = `
+      <button class="contact slim" type="button" onclick="go('contacts')">
+        <span class="contact-main">
+          <span class="contact-name">${escape(profile.contactName)}</span>
+          <span class="contact-rel">${escape(profile.contactRelation)}</span>
+        </span>
+        <span class="contact-chev">›</span>
+      </button>`;
+    $("home-contact-list").innerHTML = contact;
+    $("contacts-list").innerHTML = `
+      <button class="contact" type="button" onclick="go('edit')">
+        <span class="contact-main">
+          <span class="contact-name">${escape(profile.contactName)}</span>
+          <span class="contact-rel">${escape(profile.contactRelation)}</span>
+          <span class="contact-info">${escape(profile.contactPhone)}</span>
+        </span>
+        <span class="contact-chev">›</span>
+      </button>`;
+    $("contacts-count").textContent = "1 emergency contact";
+    fillProfileForm("profile-form", profile);
+  }
+
+  function saveProfile(event, destination) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const error = $(destination === "setup" ? "setup-error" : destination === "contact" ? "contact-error" : "profile-error");
+    error.textContent = "";
+    if (!currentEmail) {
+      error.textContent = "Your session has expired. Please log in again.";
+      go("auth");
+      return;
+    }
+    const data = new FormData(form);
+    const fields = destination === "contact"
+      ? ["contactName", "contactRelation", "contactPhone"]
+      : destination === "profile"
+        ? ["userName", "glassesModel"]
+        : ["userName", "glassesModel", "contactName", "contactRelation", "contactPhone"];
+    const savedProfile = { ...profile };
+    for (const key of fields) {
+      const value = String(data.get(key) || "").trim();
+      if (!value) {
+        error.textContent = "Please complete all fields before saving.";
+        return;
+      }
+      savedProfile[key] = value;
+    }
+    try {
+      localStorage.setItem(PROFILE_KEY + currentEmail, JSON.stringify(savedProfile));
+      profile = savedProfile;
+      updateProfileViews();
+      go(destination === "contact" ? "contacts" : "home");
+      if (destination === "contact") showToast(true, "Emergency contact saved.");
+      if (destination === "profile") showToast(true, "Your profile has been saved.");
+    } catch (storageError) {
+      error.textContent = storageError instanceof Error
+        ? "Could not save your profile in this browser. Check available storage and try again."
+        : "Could not save your profile. Check your browser settings and try again.";
+    }
+  }
+
+  function logout() {
+    try {
+      localStorage.removeItem(SESSION_KEY);
+      currentEmail = null;
+      profile = null;
+      setAuthMode("login");
+      $("auth-form").reset();
+      go("auth");
+    } catch (error) {
+      showToast(false, "Could not log out. Check your browser settings and try again.");
+    }
+  }
+
+  function render() {
+    const { fall, loc } = state;
+
+    $("st-title").textContent = fall ? "Protection is on" : "Protection is paused";
+    $("st-sub").textContent = fall
+      ? "Fall protection active · no real alerts in this demo"
+      : "Fall protection paused · tap to turn it back on";
+    $("fall-btn").classList.toggle("is-off", !fall);
+    $("fall-btn").setAttribute("aria-pressed", String(fall));
+    $("fall-btn").setAttribute("aria-label", fall ? "Deactivate fall protection" : "Activate fall protection");
+    $("orb-action").textContent = fall ? "Tap to pause" : "Tap to activate";
+
+    $("loc-sw").classList.toggle("is-off", !loc);
+    $("loc-btn").setAttribute("aria-pressed", String(loc));
+    $("loc-val").textContent = loc
+      ? "On \u00b7 shown in demo only"
+      : "Off \u00b7 excluded from demo";
+
+  }
+
+  function ask(kind) {
+    if (!state[kind]) {          // turning back on needs no confirmation
+      state[kind] = true;
+      render();
+      showToast(true, COPY[kind].toastOn);
+      return;
+    }
+    openSheet(kind);
+  }
+
+  function openSheet(kind) {
+    pending = kind;
+    const c = COPY[kind];
+    $("sheet-title").textContent = c.title;
+    $("sheet-body").textContent = c.body;
+    $("sheet-list").innerHTML = c.bullets.map((b) => "<li>" + b + "</li>").join("");
+    $("scrim").classList.add("on");
+  }
+
+  function closeSheet() {
+    $("scrim").classList.remove("on");
+    pending = null;
+  }
+
+  function confirmOff() {
+    const kind = pending;
+    if (!kind) return;
+    closeSheet();
+    state[kind] = false;
+    render();
+    showToast(false, COPY[kind].toastOff);
+  }
+
+  function showToast(isOn, text) {
+    const tag = $("toast-tag");
+    tag.textContent = isOn ? "On" : "Off";
+    tag.classList.toggle("ok", isOn);
+    $("toast-text").textContent = text;
+    $("toast").classList.add("on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => $("toast").classList.remove("on"), 3500);
+  }
+
+  function startFallDemo(updateUrl = true) {
+    if (fallCountdownTimer !== null) clearInterval(fallCountdownTimer);
+    let remaining = 20;
+    $("fall-countdown").textContent = String(remaining);
+    go("fall-detected", updateUrl);
+    fallCountdownTimer = setInterval(() => {
+      remaining -= 1;
+      $("fall-countdown").textContent = String(remaining);
+      if (remaining <= 0) sendFallAlert();
+    }, 1000);
+  }
+
+  function cancelFallDemo() {
+    go("fall-safe");
+  }
+
+  function sendFallAlert() {
+    go("fall-alert");
+  }
+
+  function updateFallAlertContact() {
+    $("fall-alert-contact").textContent = profile ? profile.contactName : "Contatto non configurato";
+    $("fall-alert-phone").textContent = profile ? profile.contactPhone : "";
+  }
+
+  // ---------------------------------------------------------------------
+  // Trust panel. Every number on this screen traces back to a real CRACI
+  // run via data/trust-panel.js. If that file is missing or malformed the
+  // screen says so plainly instead of showing comforting placeholders.
+  // ---------------------------------------------------------------------
+  const escape = (s) => String(s).replace(/[&<>"']/g, (c) => (
+    { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]
+  ));
+
+  function relativeTime(when) {
+    const diffMs = Date.now() - when.getTime();
+    if (diffMs < 0) return "just now";
+    const h = diffMs / 3600000;
+    if (h < 1) {
+      const m = Math.max(1, Math.round(diffMs / 60000));
+      return m + (m === 1 ? " minute ago" : " minutes ago");
+    }
+    if (h < 24) {
+      const r = Math.round(h);
+      return r + (r === 1 ? " hour ago" : " hours ago");
+    }
+    const d = Math.round(h / 24);
+    return d + (d === 1 ? " day ago" : " days ago");
+  }
+
+  function formatAbsolute(when) {
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const hh = String(when.getUTCHours()).padStart(2, "0");
+    const mm = String(when.getUTCMinutes()).padStart(2, "0");
+    return `${when.getUTCDate()} ${months[when.getUTCMonth()]} ${when.getUTCFullYear()}, ${hh}:${mm} UTC`;
+  }
+
+  // Green tick + "Verified" when the record says so, otherwise a plain
+  // "Being checked". Nothing is ever painted green by default.
+  function verifiedTag(ok) {
+    return ok
+      ? '<span class="verified"><svg viewBox="0 0 14 14" aria-hidden="true"><rect width="14" height="14" fill="#00933C"/><path d="M3.4 7.3 L5.9 9.7 L10.6 4.6" stroke="#EEEBE3" stroke-width="1.8" fill="none" stroke-linecap="square"/></svg>Verified</span>'
+      : '<span class="verified is-pending"><svg viewBox="0 0 14 14" aria-hidden="true"><rect x="0.75" y="0.75" width="12.5" height="12.5" fill="none" stroke="#6F6C64" stroke-width="1.5"/></svg>Being checked</span>';
+  }
+
+  function renderTrust() {
+    const d = window.TRUST_DATA;
+    const seal = $("trust-seal");
+    if (!d) {
+      $("trust-headline").textContent = "Record missing";
+      $("trust-vuln-line").textContent = "No build record found for this version.";
+      $("trust-groups").innerHTML = "";
+      seal.style.borderColor = "var(--red)";
+      $("trust-seal").querySelector(".seal-badge").style.color = "var(--red)";
+      // Without a record there is nothing for CRACI to have verified.
+      $("craci-band").style.display = "none";
+      $("craci-band-raw").style.display = "none";
+      return;
+    }
+
+    const vulns = d.run.knownVulnerabilities || 0;
+    $("trust-runtime-n").textContent = d.runtimeTotal;
+    $("trust-vuln-line").textContent = vulns === 0
+      ? "No known safety issues."
+      : vulns + (vulns === 1 ? " known issue being handled." : " known issues being handled.");
+
+    const when = new Date(d.run.verified);
+    $("trust-ago").textContent = relativeTime(when);
+    $("trust-when").textContent = formatAbsolute(when);
+
+    $("trust-groups").innerHTML = d.groups.map((g, i) => `
+      <button type="button" class="group-row" data-group="${escape(g.id)}" aria-expanded="false">
+        <div class="group-head">
+          <span class="group-num">${String(i + 1).padStart(2, "0")}</span>
+          <div class="group-body">
+            <p class="group-title">${escape(g.title)}</p>
+            <p class="group-blurb">${escape(g.blurb)}</p>
+          </div>
+          <span class="group-chev"></span>
+        </div>
+        <div class="group-detail">
+          ${g.components.map((c) => `<div class="comp-row"><span class="comp-main"><span class="comp-name">${escape(c.name)}</span><span class="comp-where">${escape(c.where)}</span></span>${verifiedTag(c.verified)}</div>`).join("")}
+        </div>
+      </button>
+    `).join("");
+    $("trust-groups").querySelectorAll(".group-row").forEach((row) => {
+      row.addEventListener("click", () => {
+        const open = row.classList.toggle("is-open");
+        row.setAttribute("aria-expanded", String(open));
+      });
+    });
+
+    $("trust-stat-pkgs").textContent = d.run.packagesChecked;
+    $("trust-stat-vulns").textContent = vulns;
+    $("trust-stat-jobs").textContent = d.run.jobsSucceeded + "/" + d.run.jobsTotal;
+
+    const rawRow = (c) =>
+      `<div class="raw-item"><span class="raw-main"><span class="raw-name">${escape(c.name)}${c.version ? " " + escape(c.version) : ""}</span><span class="raw-src">${escape(c.source)}</span></span>${verifiedTag(c.verified)}</div>`;
+    $("raw-server").innerHTML = d.raw.server.map(rawRow).join("");
+    $("raw-glasses").innerHTML = d.raw.glasses.map(rawRow).join("");
+    $("raw-server-n").textContent = d.raw.server.length + (d.raw.server.length === 1 ? " item" : " items");
+    $("raw-glasses-n").textContent = d.raw.glasses.length + (d.raw.glasses.length === 1 ? " item" : " items");
+    $("raw-dev-n").textContent = d.developerToolsTotal;
+  }
+
+  renderTrust();
+
+  // Deep links, used for screenshots and for jumping straight to a state:
+  //   #/contacts   #/edit   #/home?confirm=fall   #/home?confirm=loc
+  //   #/home?fall=off   #/home?loc=off   (combine with &)
+  //   #/trust      #/rawsbom
+  //   #/fall-detected  #/fall-alert
+  (function initFromHash() {
+    const h = window.location.hash || "";
+    const [path, query] = h.replace(/^#\/?/, "").split("?");
+    const q = new URLSearchParams(query || "");
+    try {
+      currentEmail = localStorage.getItem(SESSION_KEY);
+      if (!currentEmail) {
+        setAuthMode("login");
+        go("auth");
+        return;
+      }
+      profile = readProfile(currentEmail);
+      if (!profile) {
+        fillProfileForm("setup-form", {});
+        go("setup");
+        return;
+      }
+      fillProfileForm("profile-form", profile);
+      updateProfileViews();
+    } catch (error) {
+      setAuthMode("login");
+      go("auth");
+      $("auth-error").textContent = error instanceof Error
+        ? error.message
+        : "Could not read local account data. Check your browser settings and try again.";
+      return;
+    }
+    if (path === "fall-detected") startFallDemo(false);
+    else if (screens.includes(path) && path !== "auth" && path !== "setup") go(path, false);
+    if (q.get("fall") === "off") state.fall = false;
+    if (q.get("loc") === "off") state.loc = false;
+    render();
+    const confirm = q.get("confirm");
+    if (confirm === "loc") openSheet("loc");
+    else if (confirm) openSheet("fall");
+  })();
+
+  window.addEventListener("hashchange", () => {
+    const path = (window.location.hash || "").replace(/^#\/?/, "").split("?")[0];
+    if (!currentEmail || !profile) {
+      go(profile ? "setup" : "auth");
+      return;
+    }
+    if (path === "fall-detected") startFallDemo(false);
+    else if (screens.includes(path) && path !== "auth" && path !== "setup") go(path, false);
+  });
+</script>
+</body>
+</html>

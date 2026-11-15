@@ -1,0 +1,70 @@
+{
+  "updated_at": "2026-11-14T20:52:40",
+  "history_file": "evaluation_history.jsonl",
+  "models": [
+    {
+      "model": "claude-haiku-5-5",
+      "prompt_version": "v3-caduta-it",
+      "n_calls": 84,
+      "n_sent_to_model": 84,
+      "n_quality_rejected": 0,
+      "n_errors": 12,
+      "pred_counts": {
+        "yes": 13,
+        "no": 59,
+        "uncertain": 12
+      },
+      "metrics": null,
+      "latency_ms": {
+        "latency_preprocess_ms": {
+          "median": 56.0,
+          "p95": 101
+        },
+        "latency_model_ms": {
+          "median": 1316.0,
+          "p95": 2104
+        },
+        "latency_server_ms": {
+          "median": 1364.5,
+          "p95": 2191
+        },
+        "latency_total_ms": {
+          "median": 2490.0,
+          "p95": 3401
+        }
+      }
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "prompt_version": "v3-caduta-it",
+      "n_calls": 84,
+      "n_sent_to_model": 84,
+      "n_quality_rejected": 0,
+      "n_errors": 0,
+      "pred_counts": {
+        "yes": 21,
+        "no": 63,
+        "uncertain": 0
+      },
+      "metrics": null,
+      "latency_ms": {
+        "latency_preprocess_ms": {
+          "median": 58.0,
+          "p95": 111
+        },
+        "latency_model_ms": {
+          "median": 2079.0,
+          "p95": 5268
+        },
+        "latency_server_ms": {
+          "median": 2123.5,
+          "p95": 5343
+        },
+        "latency_total_ms": {
+          "median": 3103.0,
+          "p95": 7230
+        }
+      }
+    }
+  ]
+}

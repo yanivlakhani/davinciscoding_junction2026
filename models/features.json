@@ -1,0 +1,578 @@
+{
+  "schema_version": 2,
+  "model": "fall_model.json",
+  "kotlin_model": "fall_model.kt",
+  "feature_names": [
+    "pre_a_min",
+    "pre_a_std",
+    "pre_a_range",
+    "pre_low_g_count",
+    "pre_min_to_max_s",
+    "pre_ax_mean",
+    "pre_ax_std",
+    "pre_ay_mean",
+    "pre_az_mean",
+    "pre_az_std",
+    "pre_omega_max",
+    "pre_omega_mean",
+    "pre_rotation_rad",
+    "post_a_max",
+    "post_a_min",
+    "post_a_mean",
+    "post_low_g_count",
+    "post_ax_mean",
+    "post_ay_mean",
+    "post_ay_std",
+    "post_az_mean",
+    "post_az_std",
+    "post_omega_mean",
+    "gravity_pre_post_deg",
+    "gravity_post_y_deg"
+  ],
+  "features": [
+    {
+      "index": 0,
+      "name": "pre_a_min",
+      "segment": "pre",
+      "formula": "min(a)",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 1,
+      "name": "pre_a_std",
+      "segment": "pre",
+      "formula": "sqrt(mean((a-mean(a))^2)); ddof=0",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 2,
+      "name": "pre_a_range",
+      "segment": "pre",
+      "formula": "max(a)-min(a)",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 3,
+      "name": "pre_low_g_count",
+      "segment": "pre",
+      "formula": "sum(a < 0.6*9.80665)",
+      "unit": "samples"
+    },
+    {
+      "index": 4,
+      "name": "pre_min_to_max_s",
+      "segment": "pre",
+      "formula": "(first_argmax(a)-first_argmin(a))/30; signed",
+      "unit": "s"
+    },
+    {
+      "index": 5,
+      "name": "pre_ax_mean",
+      "segment": "pre",
+      "formula": "mean(ax)",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 6,
+      "name": "pre_ax_std",
+      "segment": "pre",
+      "formula": "sqrt(mean((ax-mean(ax))^2)); ddof=0",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 7,
+      "name": "pre_ay_mean",
+      "segment": "pre",
+      "formula": "mean(ay)",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 8,
+      "name": "pre_az_mean",
+      "segment": "pre",
+      "formula": "mean(az)",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 9,
+      "name": "pre_az_std",
+      "segment": "pre",
+      "formula": "sqrt(mean((az-mean(az))^2)); ddof=0",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 10,
+      "name": "pre_omega_max",
+      "segment": "pre",
+      "formula": "max(omega)",
+      "unit": "rad/s"
+    },
+    {
+      "index": 11,
+      "name": "pre_omega_mean",
+      "segment": "pre",
+      "formula": "mean(omega)",
+      "unit": "rad/s"
+    },
+    {
+      "index": 12,
+      "name": "pre_rotation_rad",
+      "segment": "pre",
+      "formula": "sum(omega)/30; rectangular sum",
+      "unit": "rad"
+    },
+    {
+      "index": 13,
+      "name": "post_a_max",
+      "segment": "post",
+      "formula": "max(a)",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 14,
+      "name": "post_a_min",
+      "segment": "post",
+      "formula": "min(a)",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 15,
+      "name": "post_a_mean",
+      "segment": "post",
+      "formula": "mean(a)",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 16,
+      "name": "post_low_g_count",
+      "segment": "post",
+      "formula": "sum(a < 0.6*9.80665)",
+      "unit": "samples"
+    },
+    {
+      "index": 17,
+      "name": "post_ax_mean",
+      "segment": "post",
+      "formula": "mean(ax)",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 18,
+      "name": "post_ay_mean",
+      "segment": "post",
+      "formula": "mean(ay)",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 19,
+      "name": "post_ay_std",
+      "segment": "post",
+      "formula": "sqrt(mean((ay-mean(ay))^2)); ddof=0",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 20,
+      "name": "post_az_mean",
+      "segment": "post",
+      "formula": "mean(az)",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 21,
+      "name": "post_az_std",
+      "segment": "post",
+      "formula": "sqrt(mean((az-mean(az))^2)); ddof=0",
+      "unit": "m/s^2"
+    },
+    {
+      "index": 22,
+      "name": "post_omega_mean",
+      "segment": "post",
+      "formula": "mean(omega)",
+      "unit": "rad/s"
+    },
+    {
+      "index": 23,
+      "name": "gravity_pre_post_deg",
+      "segment": "last/pre second",
+      "formula": "angle(mean(acc[15:45]), mean(acc[-30:]))",
+      "unit": "deg"
+    },
+    {
+      "index": 24,
+      "name": "gravity_post_y_deg",
+      "segment": "last/pre second",
+      "formula": "angle(mean(acc[-30:]), [0,1,0])",
+      "unit": "deg"
+    }
+  ],
+  "all_feature_definitions": [
+    {
+      "name": "pre_a_max",
+      "segment": "pre",
+      "formula": "max(a)",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "pre_a_min",
+      "segment": "pre",
+      "formula": "min(a)",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "pre_a_mean",
+      "segment": "pre",
+      "formula": "mean(a)",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "pre_a_std",
+      "segment": "pre",
+      "formula": "sqrt(mean((a-mean(a))^2)); ddof=0",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "pre_a_range",
+      "segment": "pre",
+      "formula": "max(a)-min(a)",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "pre_jerk_max",
+      "segment": "pre",
+      "formula": "30*max(abs(a[i+1]-a[i]))",
+      "unit": "m/s^3"
+    },
+    {
+      "name": "pre_low_g_count",
+      "segment": "pre",
+      "formula": "sum(a < 0.6*9.80665)",
+      "unit": "samples"
+    },
+    {
+      "name": "pre_min_to_max_s",
+      "segment": "pre",
+      "formula": "(first_argmax(a)-first_argmin(a))/30; signed",
+      "unit": "s"
+    },
+    {
+      "name": "pre_ax_mean",
+      "segment": "pre",
+      "formula": "mean(ax)",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "pre_ax_std",
+      "segment": "pre",
+      "formula": "sqrt(mean((ax-mean(ax))^2)); ddof=0",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "pre_ay_mean",
+      "segment": "pre",
+      "formula": "mean(ay)",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "pre_ay_std",
+      "segment": "pre",
+      "formula": "sqrt(mean((ay-mean(ay))^2)); ddof=0",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "pre_az_mean",
+      "segment": "pre",
+      "formula": "mean(az)",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "pre_az_std",
+      "segment": "pre",
+      "formula": "sqrt(mean((az-mean(az))^2)); ddof=0",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "pre_omega_max",
+      "segment": "pre",
+      "formula": "max(omega)",
+      "unit": "rad/s"
+    },
+    {
+      "name": "pre_omega_mean",
+      "segment": "pre",
+      "formula": "mean(omega)",
+      "unit": "rad/s"
+    },
+    {
+      "name": "pre_rotation_rad",
+      "segment": "pre",
+      "formula": "sum(omega)/30; rectangular sum",
+      "unit": "rad"
+    },
+    {
+      "name": "post_a_max",
+      "segment": "post",
+      "formula": "max(a)",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "post_a_min",
+      "segment": "post",
+      "formula": "min(a)",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "post_a_mean",
+      "segment": "post",
+      "formula": "mean(a)",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "post_a_std",
+      "segment": "post",
+      "formula": "sqrt(mean((a-mean(a))^2)); ddof=0",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "post_a_range",
+      "segment": "post",
+      "formula": "max(a)-min(a)",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "post_jerk_max",
+      "segment": "post",
+      "formula": "30*max(abs(a[i+1]-a[i]))",
+      "unit": "m/s^3"
+    },
+    {
+      "name": "post_low_g_count",
+      "segment": "post",
+      "formula": "sum(a < 0.6*9.80665)",
+      "unit": "samples"
+    },
+    {
+      "name": "post_min_to_max_s",
+      "segment": "post",
+      "formula": "(first_argmax(a)-first_argmin(a))/30; signed",
+      "unit": "s"
+    },
+    {
+      "name": "post_ax_mean",
+      "segment": "post",
+      "formula": "mean(ax)",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "post_ax_std",
+      "segment": "post",
+      "formula": "sqrt(mean((ax-mean(ax))^2)); ddof=0",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "post_ay_mean",
+      "segment": "post",
+      "formula": "mean(ay)",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "post_ay_std",
+      "segment": "post",
+      "formula": "sqrt(mean((ay-mean(ay))^2)); ddof=0",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "post_az_mean",
+      "segment": "post",
+      "formula": "mean(az)",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "post_az_std",
+      "segment": "post",
+      "formula": "sqrt(mean((az-mean(az))^2)); ddof=0",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "post_omega_max",
+      "segment": "post",
+      "formula": "max(omega)",
+      "unit": "rad/s"
+    },
+    {
+      "name": "post_omega_mean",
+      "segment": "post",
+      "formula": "mean(omega)",
+      "unit": "rad/s"
+    },
+    {
+      "name": "post_rotation_rad",
+      "segment": "post",
+      "formula": "sum(omega)/30; rectangular sum",
+      "unit": "rad"
+    },
+    {
+      "name": "gravity_pre_post_deg",
+      "segment": "last/pre second",
+      "formula": "angle(mean(acc[15:45]), mean(acc[-30:]))",
+      "unit": "deg"
+    },
+    {
+      "name": "gravity_post_y_deg",
+      "segment": "last/pre second",
+      "formula": "angle(mean(acc[-30:]), [0,1,0])",
+      "unit": "deg"
+    },
+    {
+      "name": "last_second_a_std",
+      "segment": "last/pre second",
+      "formula": "sqrt(mean((a[-30:]-mean(a[-30:]))^2)); ddof=0",
+      "unit": "m/s^2"
+    },
+    {
+      "name": "last_second_omega_mean",
+      "segment": "last/pre second",
+      "formula": "mean(omega[-30:])",
+      "unit": "rad/s"
+    }
+  ],
+  "sampling_rate_hz": 30,
+  "window_samples": 76,
+  "peak_index": 45,
+  "pre_seconds": 1.5,
+  "post_seconds": 1.0,
+  "window_columns": [
+    "accelerometer_x",
+    "accelerometer_y",
+    "accelerometer_z",
+    "gyroscope_x",
+    "gyroscope_y",
+    "gyroscope_z"
+  ],
+  "segments": {
+    "pre": "[0:45] = [-1.5,0) s; 45 samples",
+    "post": "[45:76] = [0,1.0] s; 31 samples, includes impact",
+    "pre_gravity": "[15:45], 30 samples",
+    "post_gravity_and_immobility": "[-30:], 30 samples; (0,1.0] s"
+  },
+  "notation": {
+    "a": "sqrt(ax^2+ay^2+az^2); includes gravity",
+    "omega": "sqrt(gx^2+gy^2+gz^2)",
+    "mean": "sum(x)/N",
+    "std": "sqrt(sum((x-mean(x))^2)/N); ddof=0",
+    "angle(u,v)": "acos(clamp(dot(u,v)/(norm(u)*norm(v)),-1,1))*180/pi",
+    "argmin_argmax": "first occurrence in chronological order",
+    "axes": "X lateral, +Y upright vertical, Z forward/back"
+  },
+  "preprocessing": {
+    "resampling": "linear at 30 Hz; integer timestamp_ns subtraction before /1e9",
+    "missing_sensor_values": "linear interpolation; edge replication",
+    "window_edges": "first/last sample replicated",
+    "candidates": "local maxima |a|>15 or local minima |a|<0.6g; global NMS 1s by abs(|a|-g)",
+    "centering": "training positives: offline segment_fall +/-3s argmax; inference: supplied candidate",
+    "finite_inputs_only": true,
+    "gravity_angles": "raise if mean norm <1e-8"
+  },
+  "threshold": 0.9612292647361755,
+  "threshold_comparison": ">=",
+  "threshold_source": "next Float32 above max negative OOF probability, selected on same validation data; not independent",
+  "evaluation_threshold": 0.5,
+  "seed": 42,
+  "model_parameters": {
+    "max_depth": 3,
+    "n_estimators": 100,
+    "base_score": 0.5
+  },
+  "feature_selection": "gain top25 per training fold, stable original order; final selection on all training data",
+  "comparison_loso": {
+    "post_1.5s_features_38": {
+      "falls_found": 14,
+      "falls_total": 15,
+      "false_alarms": 4,
+      "false_alarms_per_minute": 0.5373766615563367,
+      "pr_auc": 0.9588664311878599,
+      "threshold": 0.5,
+      "zero_fa_threshold_oof": 0.8584359288215637,
+      "iterations": 1000,
+      "source": "real resampled windows, repeated with seed 42",
+      "feature_mean_ms": 0.154935934,
+      "predict_mean_ms": 0.069662769,
+      "combined_mean_ms": 0.224598703,
+      "booster_json_kib": 78.8369140625,
+      "platform": "Python host, not a phone measurement",
+      "post_seconds": 1.5,
+      "features": 38,
+      "window_plus_compute_ms": 1500.224598703
+    },
+    "post_1.5s_features_25": {
+      "falls_found": 14,
+      "falls_total": 15,
+      "false_alarms": 4,
+      "false_alarms_per_minute": 0.5373766615563367,
+      "pr_auc": 0.9870010504201681,
+      "threshold": 0.5,
+      "zero_fa_threshold_oof": 0.8071485757827759,
+      "iterations": 1000,
+      "source": "real resampled windows, repeated with seed 42",
+      "feature_mean_ms": 0.11643393,
+      "predict_mean_ms": 0.063006018,
+      "combined_mean_ms": 0.179439948,
+      "booster_json_kib": 78.5927734375,
+      "platform": "Python host, not a phone measurement",
+      "post_seconds": 1.5,
+      "features": 25,
+      "window_plus_compute_ms": 1500.179439948
+    },
+    "post_1.0s_features_38": {
+      "falls_found": 13,
+      "falls_total": 15,
+      "false_alarms": 6,
+      "false_alarms_per_minute": 0.8060649923345049,
+      "pr_auc": 0.8634481049028251,
+      "threshold": 0.5,
+      "zero_fa_threshold_oof": 0.9602615237236023,
+      "iterations": 1000,
+      "source": "real resampled windows, repeated with seed 42",
+      "feature_mean_ms": 0.170881757,
+      "predict_mean_ms": 0.067720535,
+      "combined_mean_ms": 0.238602292,
+      "booster_json_kib": 82.369140625,
+      "platform": "Python host, not a phone measurement",
+      "post_seconds": 1.0,
+      "features": 38,
+      "window_plus_compute_ms": 1000.238602292
+    },
+    "post_1.0s_features_25": {
+      "falls_found": 13,
+      "falls_total": 15,
+      "false_alarms": 5,
+      "false_alarms_per_minute": 0.6717208269454208,
+      "pr_auc": 0.8898263485079595,
+      "threshold": 0.5,
+      "zero_fa_threshold_oof": 0.9612292647361755,
+      "iterations": 1000,
+      "source": "real resampled windows, repeated with seed 42",
+      "feature_mean_ms": 0.099993436,
+      "predict_mean_ms": 0.062656948,
+      "combined_mean_ms": 0.162650384,
+      "booster_json_kib": 80.8564453125,
+      "platform": "Python host, not a phone measurement",
+      "post_seconds": 1.0,
+      "features": 25,
+      "window_plus_compute_ms": 1000.162650384
+    }
+  },
+  "kotlin_validation": {
+    "compiled": true,
+    "cases": 2017,
+    "max_probability_abs_error": 1.6289294613169858e-07,
+    "probability_abs_tolerance": 2e-06
+  },
+  "probability_tolerance_abs": 2e-06,
+  "feature_tolerance_abs": 1e-08,
+  "feature_tolerance_rel": 1e-08,
+  "latency_caveat": "window_plus_compute_ms assumes an already localized impact; offline NMS/recentering lookahead excluded; not measured phone end-to-end latency",
+  "legacy_models": "Existing UBJ and fold models NOT updated; incompatible with this 25-feature contract",
+  "exported_model_json_kib": 80.9091796875,
+  "exported_model_kotlin_source_kib": 48.4677734375
+}

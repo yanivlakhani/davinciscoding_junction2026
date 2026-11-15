@@ -1,0 +1,26 @@
+name: Deploy server to Modal
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - ".github/workflows/deploy-modal.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install modal
+      - run: modal deploy server/fall_server.py
+      - name: Smoke test
+        if: ${{ vars.MODAL_URL != '' }}
+        run: curl -fsS "${{ vars.MODAL_URL }}/health"

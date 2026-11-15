@@ -1,0 +1,1 @@
+{"records": [{"capability": "motion", "message": "stopping", "phone_receipt_ns": 9450397580333, "type": "capability_state"}, {"capability": "motion", "message": "stopped", "phone_receipt_ns": 9450397847750, "type": "capability_state"}]}

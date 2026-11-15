@@ -1,0 +1,1 @@
+{"acquisition": "hardware", "clock_domain": "wearable-device-monotonic-this-session", "created_unix_ns": 1794622096315062000, "producer": "ios-dat", "sampling_rate_hz": 30, "schema_version": 1, "session_id": "e09bd7d7d2a6494fa5069d0f9a3fc0a6", "units": {"accelerometer": "m/s^2 (includes gravity)", "gyroscope": "rad/s", "magnetometer": "uT"}}

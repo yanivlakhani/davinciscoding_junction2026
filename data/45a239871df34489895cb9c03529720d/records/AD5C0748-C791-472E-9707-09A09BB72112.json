@@ -1,0 +1,1 @@
+{"records": [{"clock_domain": "phone-receipt-monotonic", "fall_interval_id": "A3C1C920-71AE-4845-A973-6B70DD4C360F", "name": "falling", "phone_receipt_ns": 9562318122458, "reason": "button_release", "type": "annotation", "value": 0}]}

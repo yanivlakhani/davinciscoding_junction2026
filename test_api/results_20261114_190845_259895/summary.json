@@ -1,0 +1,40 @@
+{
+  "run": {
+    "date": "2026-11-14T19:08:45",
+    "run_id": "20261114_190845_259895",
+    "url": "https://lorejob--fall-detection-backend-fastapi-app.us-east.modal.run",
+    "force": false,
+    "model": "claude-haiku-5-5",
+    "max_side_upload": 768,
+    "prompt_version": "v3-caduta-it",
+    "folder": "../test_api"
+  },
+  "n_images": 28,
+  "n_sent_to_model": 28,
+  "n_quality_rejected": 0,
+  "n_errors": 3,
+  "pred_counts": {
+    "yes": 5,
+    "no": 20,
+    "uncertain": 3
+  },
+  "metrics": null,
+  "latency_ms": {
+    "latency_preprocess_ms": {
+      "median": 78.5,
+      "p95": 107
+    },
+    "latency_model_ms": {
+      "median": 1304.0,
+      "p95": 2207
+    },
+    "latency_server_ms": {
+      "median": 1388.0,
+      "p95": 2284
+    },
+    "latency_total_ms": {
+      "median": 2584.0,
+      "p95": 3401
+    }
+  }
+}

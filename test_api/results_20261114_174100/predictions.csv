@@ -1,0 +1,9 @@
+image,label,pred_on_ground,camera_height,view,place,confidence,sent_to_model,usable,brightness,sharpness,contrast,faces_blurred,latency_model_ms,latency_server_ms,latency_total_ms,model,prompt_version,reason,error
+IMG_8598.PNG,,uncertain,uncertain,uncertain,unknown,0.0,False,False,41.4,19.3,49.5,2,,303,15389,claude-sonnet-5-5,v2-onground,Analisi visiva non disponibile.,
+IMG_8599.PNG,,uncertain,uncertain,uncertain,unknown,0.0,False,False,24.3,5.9,26.7,4,,975,6905,claude-sonnet-5-5,v2-onground,Analisi visiva non disponibile.,
+IMG_8600.PNG,,uncertain,uncertain,uncertain,unknown,0.0,False,False,39.9,13.6,38.1,0,,371,5026,claude-sonnet-5-5,v2-onground,Analisi visiva non disponibile.,
+IMG_8601.PNG,,uncertain,uncertain,uncertain,unknown,0.0,False,False,59.7,11.4,35.1,0,,243,5333,claude-sonnet-5-5,v2-onground,Analisi visiva non disponibile.,
+IMG_8603.PNG,,uncertain,uncertain,uncertain,unknown,0.0,False,False,92.9,31.8,60.6,2,,244,3457,claude-sonnet-5-5,v2-onground,Analisi visiva non disponibile.,
+IMG_8604.PNG,,uncertain,uncertain,horizontal,stairs,0.45,True,True,79.4,140.0,49.5,0,5217,5610,8007,claude-sonnet-5-5,v2-onground,"Vista dal basso di una scala con corrimano; la telecamera sembra molto bassa, vicino ai gradini, nessuna persona né sangue visibili.",
+IMG_8605.PNG,,uncertain,uncertain,uncertain,unknown,0.0,False,False,45.6,10.3,39.5,2,,269,4061,claude-sonnet-5-5,v2-onground,Analisi visiva non disponibile.,
+IMG_8606.PNG,,no,standing,horizontal,other,0.8,True,True,65.1,55.0,46.2,0,2162,2393,7850,claude-sonnet-5-5,v2-onground,"Immagine sfocata di un ambiente interno affollato, vista ad altezza occhi; nessuna evidenza di caduta o pericolo visibile.",

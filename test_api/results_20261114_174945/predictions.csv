@@ -1,0 +1,9 @@
+image,label,pred_on_ground,caduta,confidence,p_fall,sent_to_model,usable,brightness,sharpness,contrast,faces_blurred,input_tokens,output_tokens,upload_kb,latency_preprocess_ms,latency_model_ms,latency_server_ms,latency_total_ms,model,prompt_version,reason,error
+IMG_8598.PNG,,uncertain,,,,,,,,,,,,29.8,,,,2041,,,,client: HTTPError: 422 Client Error: Unprocessable Entity for url: https://lorejob--fall-detection-backend-fastapi-app.us-east.modal.run/classify
+IMG_8599.PNG,,uncertain,,,,,,,,,,,,21.6,,,,2111,,,,client: HTTPError: 422 Client Error: Unprocessable Entity for url: https://lorejob--fall-detection-backend-fastapi-app.us-east.modal.run/classify
+IMG_8600.PNG,,uncertain,,,,,,,,,,,,32.2,,,,2040,,,,client: HTTPError: 422 Client Error: Unprocessable Entity for url: https://lorejob--fall-detection-backend-fastapi-app.us-east.modal.run/classify
+IMG_8601.PNG,,uncertain,,,,,,,,,,,,19.0,,,,1949,,,,client: HTTPError: 422 Client Error: Unprocessable Entity for url: https://lorejob--fall-detection-backend-fastapi-app.us-east.modal.run/classify
+IMG_8603.PNG,,uncertain,,,,,,,,,,,,23.7,,,,2207,,,,client: HTTPError: 422 Client Error: Unprocessable Entity for url: https://lorejob--fall-detection-backend-fastapi-app.us-east.modal.run/classify
+IMG_8604.PNG,,uncertain,,,,,,,,,,,,22.2,,,,1874,,,,client: HTTPError: 422 Client Error: Unprocessable Entity for url: https://lorejob--fall-detection-backend-fastapi-app.us-east.modal.run/classify
+IMG_8605.PNG,,uncertain,,,,,,,,,,,,29.5,,,,2108,,,,client: HTTPError: 422 Client Error: Unprocessable Entity for url: https://lorejob--fall-detection-backend-fastapi-app.us-east.modal.run/classify
+IMG_8606.PNG,,uncertain,,,,,,,,,,,,26.4,,,,2207,,,,client: HTTPError: 422 Client Error: Unprocessable Entity for url: https://lorejob--fall-detection-backend-fastapi-app.us-east.modal.run/classify
