@@ -1,29 +1,51 @@
 #!/usr/bin/env node
-// Builds data/trust-panel.js from the CycloneDX SBOMs recorded by CRACI.
+// Builds data/trust-panel.js, the data behind the companion app's Trust panel.
 //
-// The input is the raw ingredient list CRACI records while the build runs.
-// The output is a small object the companion app can read without a server,
-// and without pretending to understand package names it has no reason to
-// show a non-technical user.
+//   node scripts/build-trust-panel.mjs            write data/trust-panel.js
+//   node scripts/build-trust-panel.mjs --check    fail if the committed file is stale
+//   node scripts/build-trust-panel.mjs --strict   fail unless every tick is backed
+//                                                 by CRACI's own record
 //
-//   node scripts/build-trust-panel.mjs
+// Two kinds of input, and the difference matters:
 //
-// If the SBOMs or the run metadata change, re-run this and commit the
-// output. The UI should never ship with figures that do not trace back to
-// a real run; if that trace is broken the script should fail, not fall
-// back to placeholders.
+//   supply-chain/*.cyclonedx.json   What the lockfiles say will be installed.
+//                                   Decides WHICH components the panel lists.
+//   supply-chain/craci/*.cdx.json   What CRACI recorded being fetched during
+//                                   the build. Decides which of them get a
+//                                   "Verified" tick.
+//
+// The second set is downloaded from CRACI by scripts/fetch-craci-sboms.mjs.
+// When it is present a component is ticked only if CRACI recorded it. When
+// it is absent the script falls back to the lockfile list plus the run
+// totals, and says so in the output (evidence.source === "lockfile").
+//
+// The UI should never ship with figures that do not trace back to a real
+// run; if that trace is broken the script fails rather than falling back to
+// placeholders.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
 
+const flags = new Set(process.argv.slice(2));
+const CHECK = flags.has("--check");
+const STRICT = flags.has("--strict");
+for (const f of flags) {
+  if (f !== "--check" && f !== "--strict") {
+    console.error(`Unknown option: ${f}`);
+    process.exit(2);
+  }
+}
+
 // ---------------------------------------------------------------------------
-// Metadata from the CRACI run on 2026-11-14. Update these when a new run
-// completes. "verified" is the UTC timestamp the CRACI run started; it is
-// what the UI shows as "last checked".
+// Totals from the CRACI dashboard for the run on 2026-11-14. CRACI's API
+// does not expose the vulnerability total, so these are read off the
+// dashboard by hand. Update them when a new run completes. "verified" is
+// the UTC timestamp the CRACI run started; it is what the UI shows as
+// "last checked".
 // ---------------------------------------------------------------------------
 const RUN = {
   verified: "2026-11-14T21:02:06Z",
@@ -36,20 +58,56 @@ const RUN = {
 };
 
 // ---------------------------------------------------------------------------
-// What the backend actually runs. These come from fall_server.py's
-// uv_pip_install() call and are not in any lockfile, which is the whole
-// point of the exercise. Keep this list in step with backend/fall_server.py
-// on origin/main.
+// What the backend actually runs. The names are declared as arguments to
+// uv_pip_install() inside backend/fall_server.py and are in no lockfile,
+// which is the whole point of the exercise.
+//
+// supply-chain/backend-declared.txt is the list of those declarations. The
+// supply-chain workflow on the `craci` branch checks it against
+// fall_server.py on main, so it cannot drift unnoticed. This map adds the
+// one thing a machine cannot know: what each package is FOR, in the words
+// the panel uses. A declared package with no purpose here, or a purpose
+// for a package that is no longer declared, stops the build.
 // ---------------------------------------------------------------------------
-const BACKEND_RUNTIME = [
-  { name: "anthropic",              purpose: "vision"   },
-  { name: "opencv-python-headless", purpose: "privacy"  },
-  { name: "numpy",                  purpose: "vision"   },
-  { name: "httpx",                  purpose: "alert"    },
-  { name: "fastapi",                purpose: "server"   },
-  { name: "python-multipart",       purpose: "server"   },
-  { name: "pydantic",               purpose: "server"   },
-];
+const BACKEND_PURPOSE = {
+  "anthropic":              "vision",
+  "opencv-python-headless": "privacy",
+  "numpy":                  "vision",
+  "httpx":                  "alert",
+  "fastapi":                "server",
+  "python-multipart":       "server",
+  "pydantic":               "server",
+};
+
+// PEP 503: PyPI treats runs of "-", "_" and "." as the same character and
+// ignores case, so "Python_Multipart" and "python-multipart" are one package.
+const pypiName = (name) => name.toLowerCase().replace(/[-_.]+/g, "-");
+
+// "fastapi[standard]" -> "fastapi", "opencv-python-headless<5" -> the name.
+const requirementName = (line) => pypiName(line.split(/[\[<>=!~;\s]/)[0]);
+
+function loadBackendDeclared() {
+  const rel = "supply-chain/backend-declared.txt";
+  const names = readFileSync(join(root, rel), "utf8")
+    .split("\n")
+    .map((l) => l.replace(/#.*/, "").trim())
+    .filter(Boolean)
+    .map(requirementName);
+  const declared = new Set(names);
+  const mapped = new Set(Object.keys(BACKEND_PURPOSE).map(pypiName));
+  const unmapped = [...declared].filter((n) => !mapped.has(n));
+  const stale = [...mapped].filter((n) => !declared.has(n));
+  if (unmapped.length || stale.length) {
+    throw new Error(
+      `${rel} and BACKEND_PURPOSE disagree.` +
+      (unmapped.length ? `\n  declared but not given a purpose: ${unmapped.join(", ")}` : "") +
+      (stale.length ? `\n  given a purpose but no longer declared: ${stale.join(", ")}` : "")
+    );
+  }
+}
+loadBackendDeclared();
+
+const BACKEND_RUNTIME = Object.entries(BACKEND_PURPOSE).map(([name, purpose]) => ({ name, purpose }));
 
 // ---------------------------------------------------------------------------
 // Which npm packages from glasses-ui's SBOM actually ship to the device.
@@ -62,8 +120,7 @@ const shipsToGlasses = (name) =>
   name === "scheduler" ||
   name.startsWith("@wearables-ui-toolkit/");
 
-const purposeForGlassesPackage = (name) =>
-  name.startsWith("@wearables-ui-toolkit/") ? "display" : "display";
+const purposeForGlassesPackage = () => "display";
 
 // ---------------------------------------------------------------------------
 // The five groups the user actually reads. Each one is one job the product
@@ -123,43 +180,156 @@ const glassesBuild   = glassesComponents.filter((c) => !shipsToGlasses(c.name));
 // The companion app in this prototype is a single HTML file with no shipped
 // dependencies; everything in its SBOM is test tooling. That changes the day
 // the mock becomes a real app, and the script will pick it up automatically.
-const mobileRuntime = [];
-const mobileBuild   = mobileComponents;
+const mobileBuild = mobileComponents;
+
+// ---------------------------------------------------------------------------
+// CRACI's own record of the build.
+//
+// scripts/fetch-craci-sboms.mjs downloads one CycloneDX file per job from
+// CRACI's API, plus run.json describing the run they came from. Either the
+// backend and glasses files are both there or neither is: half a record
+// would tick some rows on evidence and others on trust, and nobody reading
+// the panel could tell which.
+// ---------------------------------------------------------------------------
+const CRACI_DIR = "supply-chain/craci";
+const CRACI_FILES = {
+  backend: "backend.cdx.json",
+  glasses: "glasses-ui.cdx.json",
+  mobile: "mobile-app.cdx.json",
+};
+
+// Package URL -> { type, name, version }. A purl is the one identifier in a
+// CycloneDX component that says which ecosystem a name belongs to, e.g.
+// pkg:npm/%40wearables-ui-toolkit/mrbd@1.2.3 or pkg:pypi/fastapi@0.115.0.
+function parsePurl(purl) {
+  if (typeof purl !== "string" || !purl.startsWith("pkg:")) return null;
+  const rest = purl.slice(4).split("#")[0].split("?")[0];
+  const slash = rest.indexOf("/");
+  if (slash < 1) return null;
+  const type = rest.slice(0, slash).toLowerCase();
+  let path = rest.slice(slash + 1);
+  let version;
+  const at = path.lastIndexOf("@");
+  if (at > 0) {                       // at === 0 is an npm scope, not a version
+    version = decodeURIComponent(path.slice(at + 1));
+    path = path.slice(0, at);
+  }
+  const name = path.split("/").map(decodeURIComponent).join("/");
+  return name ? { type, name, version } : null;
+}
+
+const recordKey = (type, name) =>
+  type === "pypi" ? `pypi:${pypiName(name)}` : `${type}:${name.toLowerCase()}`;
+
+// Index every component CRACI recorded, including nested ones, by ecosystem
+// and name. The value is the set of versions seen.
+function indexRecorded(sbom) {
+  const index = new Map();
+  const add = (key, version) => {
+    if (!index.has(key)) index.set(key, new Set());
+    if (version) index.get(key).add(String(version));
+  };
+  const walk = (components) => {
+    for (const c of components || []) {
+      const purl = parsePurl(c.purl);
+      if (purl) {
+        add(recordKey(purl.type, purl.name), purl.version || c.version);
+      } else if (c.name) {
+        // No purl, so the ecosystem is unknown. Index it under both, with
+        // the group folded in the way npm scopes are written.
+        const full = c.group ? `${c.group}/${c.name}` : c.name;
+        add(recordKey("npm", full), c.version);
+        add(recordKey("pypi", full), c.version);
+      }
+      walk(c.components);
+    }
+  };
+  walk(sbom.components);
+  return index;
+}
+
+function loadCraciEvidence() {
+  const path = (f) => join(root, CRACI_DIR, f);
+  const has = Object.fromEntries(Object.entries(CRACI_FILES).map(([k, f]) => [k, existsSync(path(f))]));
+  if (!has.backend && !has.glasses) return null;
+  if (!has.backend || !has.glasses) {
+    throw new Error(
+      `${CRACI_DIR} holds only part of a CRACI record ` +
+      `(backend: ${has.backend ? "present" : "missing"}, glasses-ui: ${has.glasses ? "present" : "missing"}). ` +
+      `Re-run scripts/fetch-craci-sboms.mjs, or remove the directory to fall back to the lockfile list.`
+    );
+  }
+  const load = (key) => {
+    const sbom = loadSbom(`${CRACI_DIR}/${CRACI_FILES[key]}`);
+    const index = indexRecorded(sbom);
+    return { index, count: index.size, vulnerabilities: Array.isArray(sbom.vulnerabilities) ? sbom.vulnerabilities.length : null };
+  };
+  const evidence = { backend: load("backend"), glasses: load("glasses"), mobile: has.mobile ? load("mobile") : null };
+  evidence.run = existsSync(path("run.json")) ? JSON.parse(readFileSync(path("run.json"), "utf8")) : null;
+  return evidence;
+}
+
+const craci = loadCraciEvidence();
+const warnings = [];
+
+// A component is shown as verified only when the CRACI run succeeded and its
+// vulnerability check came back clean. CRACI reports the vulnerability total
+// for the run, not per package, so a non-zero total withdraws every tick
+// rather than guessing which components are affected. The UI then says
+// "Being checked" instead.
+const runClean =
+  RUN.jobsSucceeded === RUN.jobsTotal && RUN.knownVulnerabilities === 0;
+
+// With CRACI's record present, a tick additionally requires that CRACI
+// recorded this component. For npm the lockfile version must be the one
+// CRACI saw. PyPI packages are declared without versions, so the version
+// shown is whichever one CRACI recorded.
+function verify(type, name, lockedVersion) {
+  if (!craci) return { verified: runClean, version: lockedVersion };
+  const record = type === "pypi" ? craci.backend : craci.glasses;
+  const versions = record.index.get(recordKey(type, name));
+  if (!versions) {
+    warnings.push(`${name}: not in CRACI's record of the build`);
+    return { verified: false, version: lockedVersion };
+  }
+  if (lockedVersion && versions.size > 0 && !versions.has(String(lockedVersion))) {
+    warnings.push(`${name}: lockfile says ${lockedVersion}, CRACI recorded ${[...versions].join(", ")}`);
+    return { verified: false, version: lockedVersion };
+  }
+  const recorded = lockedVersion || (versions.size === 1 ? [...versions][0] : undefined);
+  return { verified: runClean, version: recorded };
+}
+
+// Plain code-unit order, so the output is identical on every machine.
+const byName = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+
+// Drop undefined versions so the row shape stays the same as before.
+const row = (fields) => Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
 
 // ---------------------------------------------------------------------------
 // Assemble the five groups.
 // ---------------------------------------------------------------------------
 const bucket = Object.fromEntries(GROUPS.map((g) => [g.id, []]));
 
-// A component is shown as verified only when the CRACI run that recorded it
-// succeeded and its vulnerability check came back clean. CRACI reports the
-// vulnerability total for the run, not per package, so a non-zero total
-// withdraws every tick rather than guessing which components are affected.
-// The UI then says "Being checked" instead.
-const runClean =
-  RUN.jobsSucceeded === RUN.jobsTotal && RUN.knownVulnerabilities === 0;
+const backendRows = BACKEND_RUNTIME.map((c) => {
+  const v = verify("pypi", c.name);
+  return { purpose: c.purpose, name: c.name, version: v.version, verified: v.verified };
+});
+const glassesRows = glassesRuntime.map((c) => {
+  const v = verify("npm", c.name, c.version);
+  return { purpose: purposeForGlassesPackage(c.name), name: c.name, version: v.version, verified: v.verified };
+});
 
-for (const c of BACKEND_RUNTIME) {
-  bucket[c.purpose].push({
-    name: c.name,
-    source: "PyPI",
-    where: "server",
-    verified: runClean,
-  });
+for (const c of backendRows) {
+  bucket[c.purpose].push(row({ name: c.name, version: c.version, source: "PyPI", where: "server", verified: c.verified }));
 }
-for (const c of glassesRuntime) {
-  bucket[purposeForGlassesPackage(c.name)].push({
-    name: c.name,
-    version: c.version,
-    source: "npm",
-    where: "glasses",
-    verified: runClean,
-  });
+for (const c of glassesRows) {
+  bucket[c.purpose].push(row({ name: c.name, version: c.version, source: "npm", where: "glasses", verified: c.verified }));
 }
 
 const groups = GROUPS.map((g) => ({
   ...g,
-  components: bucket[g.id].sort((a, b) => a.name.localeCompare(b.name)),
+  components: bucket[g.id].sort(byName),
   count: bucket[g.id].length,
 }));
 
@@ -178,15 +348,74 @@ if (runtimeTotal === 0) {
 // Raw technical list for the "see the full list" view: every runtime
 // component, grouped by where it runs, with its registry source.
 const raw = {
-  server: BACKEND_RUNTIME.map((c) => ({ name: c.name, source: "PyPI", verified: runClean })),
-  glasses: glassesRuntime.map((c) => ({
-    name: c.name, version: c.version, source: "npm", verified: runClean,
-  })).sort((a, b) => a.name.localeCompare(b.name)),
+  server: backendRows.map((c) => row({ name: c.name, version: c.version, source: "PyPI", verified: c.verified })),
+  glasses: glassesRows
+    .map((c) => row({ name: c.name, version: c.version, source: "npm", verified: c.verified }))
+    .sort(byName),
   developerToolsCount: developerToolsTotal,
 };
 
+// ---------------------------------------------------------------------------
+// Where the ticks come from, recorded in the output so the claim can be
+// audited from the data file alone.
+// ---------------------------------------------------------------------------
+const verifiedCount = [...backendRows, ...glassesRows].filter((c) => c.verified).length;
+
+const evidence = craci
+  ? {
+      source: "craci",
+      basis: "Each tick means CRACI recorded this component being fetched during the build, and the run reported no known vulnerabilities.",
+      run: craci.run
+        ? {
+            id: craci.run.runId,
+            url: craci.run.runUrl,
+            commit: craci.run.commit,
+            startedAt: craci.run.startedAt,
+            fetchedAt: craci.run.fetchedAt,
+          }
+        : null,
+      componentsRecorded: {
+        backend: craci.backend.count,
+        glasses: craci.glasses.count,
+        ...(craci.mobile ? { mobile: craci.mobile.count } : {}),
+      },
+      verified: verifiedCount,
+      of: runtimeTotal,
+    }
+  : {
+      source: "lockfile",
+      basis: "Component list from lockfiles and fall_server.py; ticks from the run totals on the CRACI dashboard. CRACI's per-job SBOMs have not been downloaded into supply-chain/craci/ yet.",
+      verified: verifiedCount,
+      of: runtimeTotal,
+    };
+
+if (craci) {
+  // The dashboard totals above are typed in by hand. If the downloaded
+  // record is from a different run, or disagrees, say so.
+  // GitHub's run start and the dashboard's first job start are seconds
+  // apart for the same run, so allow a few minutes before calling it a
+  // different one.
+  const SAME_RUN_MS = 10 * 60 * 1000;
+  if (craci.run?.startedAt && Math.abs(Date.parse(craci.run.startedAt) - Date.parse(RUN.verified)) > SAME_RUN_MS) {
+    warnings.push(
+      `RUN.verified is ${RUN.verified} but the downloaded CRACI record is from the run started ${craci.run.startedAt}. ` +
+      `Update RUN from the dashboard for that run.`
+    );
+  }
+  const recordedVulns = [craci.backend, craci.glasses, craci.mobile]
+    .filter(Boolean)
+    .map((r) => r.vulnerabilities)
+    .filter((n) => n !== null);
+  if (recordedVulns.length && recordedVulns.reduce((a, b) => a + b, 0) !== RUN.knownVulnerabilities) {
+    warnings.push(
+      `CRACI's SBOMs list ${recordedVulns.reduce((a, b) => a + b, 0)} vulnerabilities but RUN.knownVulnerabilities is ${RUN.knownVulnerabilities}.`
+    );
+  }
+}
+
 const out = {
   run: RUN,
+  evidence,
   runtimeTotal,
   developerToolsTotal,
   groups,
@@ -196,16 +425,62 @@ const out = {
 
 const banner = `// GENERATED FILE. Do not edit by hand.
 // Regenerate with: node scripts/build-trust-panel.mjs
-// Source: supply-chain/*.cyclonedx.json (recorded by CRACI)
+// Component list: supply-chain/*.cyclonedx.json and supply-chain/backend-declared.txt
+// Ticks: ${craci ? "supply-chain/craci/*.cdx.json (downloaded from CRACI)" : "CRACI dashboard run totals (per-job SBOMs not downloaded yet)"}
 `;
+const PREFIX = "window.TRUST_DATA = ";
+const dataPath = join(root, "data/trust-panel.js");
 
-const js = banner + "window.TRUST_DATA = " + JSON.stringify(out, null, 2) + ";\n";
-writeFileSync(join(root, "data/trust-panel.js"), js);
+// Everything except the timestamp, which changes on every run by design.
+const comparable = (o) => JSON.stringify({ ...o, generatedAt: null });
 
-console.log(`Wrote data/trust-panel.js`);
-console.log(`  runtime components: ${runtimeTotal} in ${groups.length} groups`);
-console.log(`  developer tools excluded: ${developerToolsTotal}`);
-console.log(`  verified at: ${RUN.verified}`);
-for (const g of groups) {
-  console.log(`  ${g.count.toString().padStart(2)} ${g.id.padEnd(8)} ${g.title}`);
+function report() {
+  console.log(`  evidence: ${evidence.source}${craci?.run?.id ? ` (run ${craci.run.id})` : ""}`);
+  console.log(`  runtime components: ${runtimeTotal} in ${groups.length} groups, ${verifiedCount} verified`);
+  console.log(`  developer tools excluded: ${developerToolsTotal}`);
+  console.log(`  verified at: ${RUN.verified}`);
+  for (const g of groups) {
+    console.log(`  ${g.count.toString().padStart(2)} ${g.id.padEnd(8)} ${g.title}`);
+  }
+  for (const w of warnings) console.warn(`  WARNING: ${w}`);
+  if (!craci) {
+    console.warn("  NOTE: ticks rest on the dashboard totals. Run scripts/fetch-craci-sboms.mjs to back each one with CRACI's record.");
+  }
+}
+
+if (STRICT) {
+  const problems = [];
+  if (!craci) problems.push("CRACI's per-job SBOMs are not in supply-chain/craci/");
+  if (verifiedCount !== runtimeTotal) problems.push(`${runtimeTotal - verifiedCount} of ${runtimeTotal} components are not verified`);
+  problems.push(...warnings);
+  if (problems.length) {
+    console.error("Strict mode failed:");
+    for (const p of problems) console.error(`  - ${p}`);
+    process.exit(1);
+  }
+}
+
+if (CHECK) {
+  let committed;
+  try {
+    const text = readFileSync(dataPath, "utf8");
+    committed = JSON.parse(text.slice(text.indexOf(PREFIX) + PREFIX.length).replace(/;\s*$/, ""));
+  } catch (e) {
+    console.error(`data/trust-panel.js could not be read: ${e.message}`);
+    process.exit(1);
+  }
+  if (comparable(committed) !== comparable(out)) {
+    const changed = Object.keys({ ...committed, ...out })
+      .filter((k) => k !== "generatedAt" && JSON.stringify(committed[k]) !== JSON.stringify(out[k]));
+    console.error("data/trust-panel.js is stale: it does not match what the inputs produce.");
+    console.error(`  differs in: ${changed.join(", ")}`);
+    console.error("  Regenerate with: node scripts/build-trust-panel.mjs");
+    process.exit(1);
+  }
+  console.log("data/trust-panel.js matches its inputs");
+  report();
+} else {
+  writeFileSync(dataPath, banner + PREFIX + JSON.stringify(out, null, 2) + ";\n");
+  console.log("Wrote data/trust-panel.js");
+  report();
 }

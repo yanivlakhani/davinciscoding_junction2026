@@ -1,0 +1,14 @@
+# Runtime dependencies of the fall server, exactly as they are declared in
+# backend/fall_server.py on main (the arguments to uv_pip_install).
+#
+# Kept identical to supply-chain/backend-requirements.in on the `craci`
+# branch. The supply-chain workflow there compares the two, and compares
+# that file against fall_server.py, so a dependency added to the server
+# cannot go unnoticed by the Trust panel.
+fastapi[standard]
+python-multipart
+opencv-python-headless<5
+numpy
+pydantic
+httpx
+anthropic

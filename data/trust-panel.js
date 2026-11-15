@@ -1,6 +1,7 @@
 // GENERATED FILE. Do not edit by hand.
 // Regenerate with: node scripts/build-trust-panel.mjs
-// Source: supply-chain/*.cyclonedx.json (recorded by CRACI)
+// Component list: supply-chain/*.cyclonedx.json and supply-chain/backend-declared.txt
+// Ticks: CRACI dashboard run totals (per-job SBOMs not downloaded yet)
 window.TRUST_DATA = {
   "run": {
     "verified": "2026-11-14T21:02:06Z",
@@ -10,6 +11,12 @@ window.TRUST_DATA = {
     "packagesChecked": 181,
     "knownVulnerabilities": 0,
     "runner": "CRACI (Helsinki)"
+  },
+  "evidence": {
+    "source": "lockfile",
+    "basis": "Component list from lockfiles and fall_server.py; ticks from the run totals on the CRACI dashboard. CRACI's per-job SBOMs have not been downloaded into supply-chain/craci/ yet.",
+    "verified": 14,
+    "of": 14
   },
   "runtimeTotal": 14,
   "developerToolsTotal": 98,
@@ -230,5 +237,5 @@ window.TRUST_DATA = {
     ],
     "developerToolsCount": 98
   },
-  "generatedAt": "2026-11-14T22:13:25.227Z"
+  "generatedAt": "2026-11-14T23:55:15.816Z"
 };
