@@ -2,7 +2,7 @@
 
 > **Junction 2026 · Meta AI Glasses Track · CRACI · ElevenLabs · Modal · Codex Side Tracks**
 >
-> *Want to see it live? Ask us for an in-person demo — we'd love to show you.*
+> *Want to see it live? Ask us for an in-person demo, we'd love to show you!!!*
 
 Every year, millions of elderly individuals suffer severe, life-threatening falls. The tech industry's answer so far has been a smartwatch or a plastic panic button on a lanyard around the neck. Both are failing.
 
@@ -18,7 +18,7 @@ We are **DaVinci's Coding**, and this is our project for **Junction 2026**.
 
 ### Moving the Centre of Gravity
 
-The Junction 2026 theme is *"Moving the Centre of Gravity."* Ours does it in three ways:
+The Junction 2026 theme is *"Moving the Centre of Gravity."* Ours does it in not one, not two, but THREE distinct ways:
 
 1. **Literally.** The glasses detect a sudden shift in the wearer's centre of gravity — the biomechanical event that defines a fall.
 2. **Physically.** We move the sensor from the wrist to the head, where balance is controlled and where a camera can actually see what happened.
@@ -145,7 +145,7 @@ If an attacker exploits a new CVE within a day, the next push to `craci` catches
 
 > **Junction 2026 ElevenLabs Side Track submission**
 
-When the glasses detect a fall, the first thing the wearer hears is a voice — not a beep, not a siren, but a calm spoken question: *"Are you okay? Tell me how you feel."*
+When the glasses detect a fall, the first thing the wearer hears is a voice. Not a beep, not a siren, but a calm spoken question: *"Are you okay? Tell me how you feel."*
 
 That voice is ElevenLabs. The backend calls the ElevenLabs TTS API (`eleven_flash_v2_5` model) to generate each spoken prompt, and the audio is streamed through the glasses' open-ear speakers.
 
@@ -291,7 +291,7 @@ The companion app on the [`mobile-app`](../../tree/mobile-app) branch is a stati
 | **Lorenzo** | iOS app, glasses integration, backend pipeline, spoken check-in flow |
 | **Eddicpp** | Backend server, Claude vision, frame selection, Safy UI |
 | **Sergio** | Glasses lens display, Meta DAT toolkit |
-| **Yaniv** | Supply chain (CRACI), Trust panel, companion app, evaluation |
+| **Yaniv** | Supply chain (CRACI), glasses display UI, Trust panel & UI, companion app, evaluation |
 
 ---
 
