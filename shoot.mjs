@@ -218,11 +218,13 @@ try {
   check("contacts lists the saved contact",
     await page.$eval("#contacts-list .contact-info", (e) => e.textContent.trim()), DEMO_PROFILE.contactPhone);
   await page.click("#screen-contacts .contact"); await settle();
-  check("contact row opens the profile", await isOn(page, "screen-profile"), true);
-  check("profile form is filled from the saved profile",
-    await page.$eval('#profile-form [name="contactName"]', (e) => e.value), DEMO_PROFILE.contactName);
-  await page.click("#screen-profile .back"); await settle();
-  check("back returns home", await isOn(page, "screen-home"), true);
+  check("contact row opens the contact editor", await isOn(page, "screen-edit"), true);
+  check("contact form is filled from the saved profile",
+    await page.$eval('#contact-form [name="contactName"]', (e) => e.value), DEMO_PROFILE.contactName);
+  await page.click("#screen-edit .back"); await settle();
+  check("back returns to contacts", await isOn(page, "screen-contacts"), true);
+  await page.click('.tab[data-tab="home"]'); await settle();
+  check("home tab returns home", await isOn(page, "screen-home"), true);
   await page.click('.tab[data-tab="trust"]'); await settle();
   check("trust tab opens the trust panel", await isOn(page, "screen-trust"), true);
   await page.click('.tab[data-tab="home"]'); await settle();
