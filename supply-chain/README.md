@@ -65,6 +65,41 @@ people who have fallen. A recording made during the build finds all seven
 plus their transitive tree, which is the whole argument for build-time
 SBOMs rather than manifest parsing.
 
+### Pinning what the code declares
+
+Seven names in a function call are not a record of what ships. Resolved for
+Python 3.12 on Linux, which is what both the Modal image and the CRACI
+runner use, those seven declarations become **65 packages**. Three files
+in this directory hold that down:
+
+| File | What it is |
+| --- | --- |
+| `backend-requirements.in` | The seven declarations, copied out of `fall_server.py` |
+| `backend-requirements.txt` | All 65 packages they resolve to, each pinned to one version with the hashes of its files |
+| `check_backend_pins.py` | Reads the declarations back out of `fall_server.py` and fails if either file has drifted from the code |
+
+The backend job checks out `main` at its current commit, runs the check,
+and then installs from the pinned file with `--require-hashes`, so pip
+refuses any file whose hash is not in the lock and any package the lock
+does not name. If someone adds a library to the server, the job fails
+until the pins are regenerated; the copy cannot quietly become fiction.
+Nothing is pushed to `main`, so the Modal deploy is never triggered.
+
+To regenerate after the server's dependencies change:
+
+```
+uv pip compile supply-chain/backend-requirements.in \
+  --python-version 3.12 --python-platform x86_64-unknown-linux-gnu \
+  --generate-hashes -o supply-chain/backend-requirements.txt
+```
+
+What this does **not** do: it does not change what Modal installs. The
+deployed image is still built from the unpinned call in `fall_server.py`,
+so it gets whatever versions are newest on the day it is built, and those
+can differ from the pins here. The pins make the CRACI record reproducible
+and reviewable; closing the gap fully means having `fall_server.py` install
+from this file, which is a change to the product and belongs on `main`.
+
 ## What we found
 
 `mobile-app` depends on `puppeteer@25.17.0`, which declares:
@@ -98,29 +133,52 @@ don't. For a device a vulnerable person wears all day, we think the
 opposite is the more interesting move: take the ingredient list CRACI
 records and show it to the person wearing the device, and to their family.
 
-The companion app's `Trust` tab (`mobile-app` branch, screenshots in
-`mobile-app/shots/`) translates the CycloneDX SBOM into five human-worded
+The companion app's `Trust` tab (`mobile-app` branch; `node shoot.mjs`
+there regenerates screenshots) translates the CycloneDX SBOM into five human-worded
 groups — "Sees and understands what happens", "Keeps your face private",
 "Alerts your family", "Receives signals from the glasses", "Shows text on
-your glasses" — with the real package names one tap away. Every figure
-on the screen traces back to this directory's SBOMs through a small
-translation script (`mobile-app/scripts/build-trust-panel.mjs`) that
+your glasses" — with the real package names one tap away, each with a
+"Verified" tick. A small translation script
+(`mobile-app/scripts/build-trust-panel.mjs`) builds the panel's data and
 refuses to emit placeholders; if the record is missing the panel says so.
 
-So the chain is:
+The panel draws on two different things, and it matters which is which:
+
+- **Which components are listed** comes from the lockfiles and from the
+  server's declarations (`backend-declared.txt` on `mobile-app`, held to
+  `fall_server.py` by the same check as above).
+- **Which of them are ticked** is meant to come from CRACI's own record of
+  the build. CRACI keeps one CycloneDX SBOM per job and serves it from its
+  API. `mobile-app/scripts/fetch-craci-sboms.mjs` downloads the three
+  product jobs' SBOMs into `mobile-app/supply-chain/craci/`, with the run
+  ID, commit and a SHA-256 of each file as served. Once they are there, a
+  component is ticked only if CRACI recorded it, at the locked version.
 
 ```
-CRACI runners  ->  supply-chain/*.cyclonedx.json
-                     |
-                     v
-          mobile-app/scripts/build-trust-panel.mjs
-                     |
-                     v
-          mobile-app/data/trust-panel.js
-                     |
-                     v
-          Trust panel in the companion app
+supply-chain.yml on CRACI runners
+        |  one SBOM per job, held by CRACI
+        v
+mobile-app/scripts/fetch-craci-sboms.mjs      (needs a CRACI API token)
+        v
+mobile-app/supply-chain/craci/*.cdx.json + run.json
+        v
+mobile-app/scripts/build-trust-panel.mjs      (--strict: every tick backed)
+        v
+mobile-app/data/trust-panel.js  ->  Trust panel in the companion app
 ```
+
+Until that download has been done, the script falls back to the lockfile
+list and ticks every component on the strength of the run totals from the
+CRACI dashboard (all jobs succeeded, no known vulnerabilities). The output
+records which basis was used in its `evidence` field, and
+`build-trust-panel.mjs --strict` fails on anything less than CRACI's
+record. The vulnerability total itself is read off the dashboard by hand,
+because the API does not expose it.
+
+The workflow's `trust-panel` job keeps the app honest between downloads: it
+fails if the app's backend list differs from what the server declares, or
+if the committed `data/trust-panel.js` is not exactly what its inputs
+produce.
 
 This is the first SBOM we've seen pointed at the person wearing the
 device, rather than at an auditor. The CRA angle is still there — the

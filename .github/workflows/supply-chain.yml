@@ -5,6 +5,7 @@ name: Supply chain evidence
 #
 # Deliberately isolated from deploy-modal.yml:
 #   - never runs on main, so it cannot touch the Modal deploy
+#   - reads main, glasses-ui and mobile-app but never writes to any branch
 #   - no pull_request trigger, so it cannot put a failing check on anyone's PR
 #   - permissions are read-only and no secrets are used
 #   - timeout-minutes caps the wait if the CRACI App is not installed yet,
@@ -44,35 +45,57 @@ jobs:
       - uses: cracicorp/setup@v1
         with:
           size: "4"
+
+      # This branch holds the evidence: the pinned list and the script that
+      # checks it.
       - uses: actions/checkout@v4
 
-      # The server's runtime dependencies are arguments to uv_pip_install()
-      # inside fall_server.py. There is no requirements.txt and no lockfile,
-      # so a scanner that reads manifests finds nothing at all here. Read
-      # them out of the source so the install is the real one.
-      - name: Resolve dependencies declared inside fall_server.py
-        run: |
-          python3 - <<'PY' | tee requirements.recorded.txt
-          import ast, pathlib
-          src = pathlib.Path("backend/fall_server.py").read_text()
-          for node in ast.walk(ast.parse(src)):
-              if (isinstance(node, ast.Call)
-                      and isinstance(node.func, ast.Attribute)
-                      and node.func.attr in ("uv_pip_install", "pip_install")):
-                  for arg in node.args:
-                      if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                          print(arg.value)
-          PY
-          test -s requirements.recorded.txt
+      # The product comes from main at whatever commit is current, so the
+      # record describes the server as it is today, not as it was when this
+      # branch was cut. Read-only: nothing is pushed, so deploy-modal.yml is
+      # never triggered.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: product
 
-      - name: Install them, so the fetches are recorded
-        run: python3 -m pip install --upgrade --root-user-action=ignore -r requirements.recorded.txt
+      # The server's runtime dependencies are arguments to uv_pip_install()
+      # inside fall_server.py. There is no requirements.txt and no lockfile
+      # in the product, so a scanner that reads manifests finds nothing at
+      # all here. supply-chain/backend-requirements.in copies those
+      # declarations out and backend-requirements.txt pins everything they
+      # resolve to. This step reads the declarations back out of the code
+      # and fails if the copies have drifted, so a library added to the
+      # server cannot slip past the record.
+      - name: Check the pins still match what fall_server.py declares
+        run: |
+          set -euo pipefail
+          python3 supply-chain/check_backend_pins.py \
+            --source product/backend/fall_server.py \
+            --declared supply-chain/backend-requirements.in \
+            --pins supply-chain/backend-requirements.txt | tee backend-pins-report.txt
+
+      # A virtual environment keeps the pinned versions apart from the
+      # Python packages Ubuntu installs system-wide, which pip cannot
+      # replace. --require-hashes refuses any file whose hash is not in the
+      # lock, and any package the lock does not name.
+      - name: Install the pinned set, so the fetches are recorded
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check \
+            ${SSL_CERT_FILE:+--cert "$SSL_CERT_FILE"} \
+            --require-hashes -r supply-chain/backend-requirements.txt
+          .venv/bin/python -m pip freeze > backend-installed.txt
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: backend-dependencies
-          path: requirements.recorded.txt
+          path: |
+            backend-pins-report.txt
+            backend-installed.txt
+            supply-chain/backend-requirements.txt
 
   glasses-ui:
     name: Glasses UI (npm)
@@ -161,3 +184,51 @@ jobs:
           ref: mobile-app
       - name: Install with the download allowed
         run: npm ci
+
+  # --------------------------------------------------------------------
+  # The companion app's Trust panel shows this evidence to the person
+  # wearing the glasses, so it is held to the same record:
+  #
+  #   - the app's list of backend packages is the list the server declares
+  #   - the panel data committed on mobile-app is exactly what its inputs
+  #     produce, so nobody can hand-edit a tick into it
+  #   - the scripts that decide all of this pass their own tests
+  #
+  # This job installs nothing and builds nothing, so there is no supply
+  # chain here for CRACI to record. It runs on a GitHub-hosted runner and
+  # is not one of the CRACI jobs.
+  # --------------------------------------------------------------------
+
+  trust-panel:
+    name: Trust panel matches the evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: product
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-app
+          path: app
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: The app lists the backend packages the server declares
+        run: |
+          python3 supply-chain/check_backend_pins.py \
+            --source product/backend/fall_server.py \
+            --declared supply-chain/backend-requirements.in \
+            --pins supply-chain/backend-requirements.txt \
+            --mirror app/supply-chain/backend-declared.txt
+
+      - name: The committed panel data is what its inputs produce
+        run: node app/scripts/build-trust-panel.mjs --check
+
+      - name: The scripts behind both checks pass their tests
+        run: |
+          python3 -m unittest discover -s supply-chain -p 'test_*.py'
+          node --test app/scripts/trust-panel.test.mjs

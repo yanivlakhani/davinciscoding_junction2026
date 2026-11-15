@@ -1,0 +1,18 @@
+# Runtime dependencies of the fall server, exactly as they are declared in
+# backend/fall_server.py on main (the arguments to uv_pip_install).
+#
+# This file is the input; backend-requirements.txt is the pinned result.
+# The workflow fails if this list stops matching fall_server.py, so adding a
+# library to the server without updating the pins cannot go unnoticed.
+#
+# After editing, regenerate the pins (see supply-chain/README.md):
+#   uv pip compile supply-chain/backend-requirements.in \
+#     --python-version 3.12 --python-platform x86_64-unknown-linux-gnu \
+#     --generate-hashes -o supply-chain/backend-requirements.txt
+fastapi[standard]
+python-multipart
+opencv-python-headless<5
+numpy
+pydantic
+httpx
+anthropic
