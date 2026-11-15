@@ -156,7 +156,7 @@ That voice is ElevenLabs. The backend calls the ElevenLabs TTS API (`eleven_flas
 
 ### Seven spoken states
 
-ElevenLabs generates a distinct prompt for each stage of the conversation, in English and Italian:
+ElevenLabs generates a distinct prompt for each stage of the conversation, in English and Italian (with possibility to extend to any other language as we scale, using ElevenLabs' language features):
 
 | Stage | What the glasses say |
 |-------|---------------------|
@@ -178,7 +178,7 @@ Audio is generated once per voice+model+language combination and cached in serve
 
 > **Junction 2026 Modal Side Track submission**
 
-The entire backend runs on [Modal](https://modal.com) as a single serverless application (`fall-detection-backend`). Modal is not just hosting — it is what makes a 48-hour hackathon backend production-capable.
+The entire backend runs on [Modal](https://modal.com) as a single serverless application (`fall-detection-backend`). Modal is not simply just hosting. A better way to describe Modal's role in our project is that it is what makes a 48-hour hackathon backend production-capable.
 
 ### What Modal provides
 
@@ -208,7 +208,7 @@ Modal's serverless model means the backend scales to zero when nobody is falling
 
 > **Junction 2026 Codex Side Track submission**
 
-All four team members used Codex throughout the 48-hour build. It was not a nice-to-have — it was how a team of four shipped a multi-platform system in two days.
+All four team members used Codex throughout the 48-hour build. It was not a nice-to-have. In fact, it was literally how a team of four shipped a multi-platform system in two sleep-deprived days.
 
 ### How we used it
 
