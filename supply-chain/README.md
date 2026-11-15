@@ -108,20 +108,38 @@ from this file, which is a change to the product and belongs on `main`.
 "scripts": { "postinstall": "node install.mjs" }
 ```
 
-That hook downloads a Chrome binary — roughly 150 MB of executable code —
-from `storage.googleapis.com`. There are 27 packages in that lockfile and the
-binary is none of them, so the generated SBOM lists 26 components, says
-`puppeteer`, and stops. The largest single artifact entering the build is
-invisible to it.
+That hook downloads two browser builds from `storage.googleapis.com`:
+Chrome for Testing and `chrome-headless-shell`, both at 157.0.8103.50. On
+Linux the two archives come to about 330 MB (204 MB and 128 MB). There are
+27 packages in that lockfile and neither browser is one of them, so the
+generated SBOM lists 26 components, says `puppeteer`, and stops. The
+largest things entering the build are invisible to it.
 
 The workflow demonstrates this with two jobs that differ only in policy:
 
-- `undeclared-fetch-blocked` allows the `npm` and `github` presets only. The
-  Chrome download matches no rule, the job fails closed, and CRACI reports
-  the violation. **This job is expected to fail; the failure is the result.**
+- `undeclared-fetch-blocked` allows the `npm` and `github` presets only.
+  The browser downloads match no rule, so the connections are blocked.
 - `undeclared-fetch-reviewed` names `storage.googleapis.com` explicitly in a
-  `connections` rule, with a comment recording why it is acceptable, and
-  passes.
+  `connections` rule, with a comment recording why it is acceptable.
+
+**Blocking the download does not fail the install, and that is the second
+half of the finding.** puppeteer's hook catches the failed download, prints
+a warning and exits 0, so `npm ci` reports `added 27 packages` and succeeds
+with no browser on disk. In the first three runs the install step was green
+under both policies; the only visible difference was that it took 1–2
+seconds under the strict policy and 11–16 seconds where the download is
+allowed. The exit code, the lockfile and a lockfile SBOM are identical
+whether 330 MB of executable code arrived or not.
+
+So neither job relies on the install step's result. Each ends by asking
+puppeteer where its browser should be and checking whether the file
+exists: the strict job passes only if the browser is absent, the reviewed
+job only if it is present. Both jobs are expected to pass.
+
+CRACI records blocked connections in the job's trace, under **Proxy
+violations**, with the reason no rule matched
+([Debug network problems in jobs](https://docs.craci.com/guides/network-troubleshooting/)).
+That record, not the build's exit status, is where a blocked fetch shows up.
 
 The second job is what a reviewed dependency should look like: a named host
 in version control with a reason attached, rather than a fetch nobody saw.

@@ -130,26 +130,31 @@ jobs:
   # --------------------------------------------------------------------
   # The finding.
   #
-  # mobile-app depends on puppeteer, whose postinstall hook downloads a
-  # Chrome binary from storage.googleapis.com. That binary is not a package
-  # in package-lock.json, so a lockfile-based SBOM never mentions it: it
-  # reports "puppeteer" and stops there.
+  # mobile-app depends on puppeteer, whose postinstall hook downloads two
+  # browser builds, Chrome for Testing and chrome-headless-shell, from
+  # storage.googleapis.com. Neither is a package in package-lock.json, so a
+  # lockfile-based SBOM never mentions them: it reports "puppeteer" and
+  # stops there.
   #
-  # Under a policy that allows only npm and GitHub, that download has no
-  # matching rule and the job fails closed. The run below is expected to
-  # fail, and the failure is the evidence. continue-on-error keeps it from
-  # marking the whole workflow red.
+  # Under a policy that allows only npm and GitHub, those downloads have no
+  # matching rule and the connections are blocked. That does not fail the
+  # install. puppeteer's hook catches the failed download, prints a warning
+  # and exits 0, so `npm ci` succeeds with no browser on disk. A green
+  # install step therefore says nothing about whether the browser arrived,
+  # and each job below ends by asking puppeteer where its browser should be
+  # and checking whether the file exists.
   #
-  # The reviewed-policy job next to it allows the host explicitly, which is
-  # what accepting a build-time dependency should look like: a named host
-  # in version control rather than an unnoticed fetch.
+  # The strict job passes only if the browser did not arrive. The
+  # reviewed-policy job next to it allows the host explicitly and passes
+  # only if it did, which is what accepting a build-time dependency should
+  # look like: a named host in version control rather than an unnoticed
+  # fetch.
   # --------------------------------------------------------------------
 
   undeclared-fetch-blocked:
     name: Strict policy (expected to block Chrome download)
     runs-on: craci
     timeout-minutes: 15
-    continue-on-error: true
     steps:
       - uses: cracicorp/setup@v1
         with:
@@ -161,6 +166,18 @@ jobs:
           ref: mobile-app
       - name: Install with npm and GitHub as the only allowed sources
         run: npm ci
+      - name: Check the browser did not arrive
+        env:
+          EXPECT: absent
+        run: |
+          node --input-type=module -e '
+          import { existsSync } from "node:fs";
+          import puppeteer from "puppeteer";
+          const path = await puppeteer.executablePath();
+          const found = existsSync(path) ? "present" : "absent";
+          console.log(`Browser is ${found} at ${path} (this job expects ${process.env.EXPECT})`);
+          process.exit(found === process.env.EXPECT ? 0 : 1);
+          '
 
   undeclared-fetch-reviewed:
     name: Reviewed policy (Chrome download named explicitly)
@@ -184,6 +201,18 @@ jobs:
           ref: mobile-app
       - name: Install with the download allowed
         run: npm ci
+      - name: Check the browser arrived
+        env:
+          EXPECT: present
+        run: |
+          node --input-type=module -e '
+          import { existsSync } from "node:fs";
+          import puppeteer from "puppeteer";
+          const path = await puppeteer.executablePath();
+          const found = existsSync(path) ? "present" : "absent";
+          console.log(`Browser is ${found} at ${path} (this job expects ${process.env.EXPECT})`);
+          process.exit(found === process.env.EXPECT ? 0 : 1);
+          '
 
   # --------------------------------------------------------------------
   # The companion app's Trust panel shows this evidence to the person
