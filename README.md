@@ -2,7 +2,12 @@
 
 > **Junction 2026 · Meta AI Glasses Track · CRACI · ElevenLabs · Modal · Codex Side Tracks**
 >
-> *Want to see it live? Ask us for an in-person demo, we'd love to show you!!!*
+
+> 🔍 **Note for Judges: Live Demo**
+> Because this is a native iOS app utilizing hardware-specific sensors (IMU) and edge computing (CoreML), a web link cannot replicate the architecture. Please watch the **Demo Video** provided to see the pipeline in action. 
+> **Want to test it yourself?** Come visit our table for a live, hands-on demonstration!
+
+
 
 Every year, millions of elderly individuals suffer severe, life-threatening falls. The tech industry's answer so far has been a smartwatch or a plastic panic button on a lanyard around the neck. Both are failing.
 
