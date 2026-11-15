@@ -77,6 +77,15 @@ The Junction 2026 theme is *"Moving the Centre of Gravity."* Ours does it in not
 
 ---
 
+### 🧠 The ML Engine & Engineering Pragmatism
+During the hackathon, we successfully trained and tested a custom Machine Learning model to classify falls based on IMU data. You can find the training scripts and dataset in the `ml-engine` folder on our repository. 
+
+However, for the final 48-hour MVP submission, we chose to pivot to a **deterministic threshold-based rule** for the Stage 1 Edge trigger. Through rigorous testing, we found that a deterministic approach provided 100% reliability for our specific live-demo constraints without the black-box unpredictability of a lightweight model. 
+
+We kept the ML Engine code in the repository to demonstrate our edge-AI capabilities and future roadmap, but we are proud of the pragmatic engineering choice to prioritize absolute reliability for a life-saving device MVP.
+
+---
+
 ## The five screens on the glasses
 
 The lens display mirrors the backend state machine. On a 600×600 additive-light display, pure black is transparent and only the UI glows.
