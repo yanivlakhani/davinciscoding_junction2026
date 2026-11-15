@@ -35,6 +35,7 @@ final class FallCheckIn {
     }
     @ObservationIgnored var setCameraSuspended: ((Bool) async throws -> Void)?
     @ObservationIgnored var onFinished: (() -> Void)?
+    @ObservationIgnored var onLensPresentation: ((LensScreen?) -> Void)?
     @ObservationIgnored var onAudioDiagnostic: ((String, String) -> Void)?
     var audioDiagnostic: String { audio.diagnosticStatus }
     @ObservationIgnored private var activeTask: Task<Void, Never>?
@@ -43,11 +44,23 @@ final class FallCheckIn {
     private let journal: CheckInJournal
     private var activeEvent: String?
     private var setupGeneration = 0
+    private var lensGeneration = 0
+    private var allowsLensPresentation = false
+    private var lensStage = CheckInSubmission.Stage.initial
+    private var lensReceiptShown = false
     private var promptWarmupTask: Task<Void, Never>?
 
     init(root: URL, delivery: ModalDelivery) {
         self.delivery = delivery; journal = CheckInJournal(root: root)
         audio.onDiagnostic = { [weak self] event, detail in self?.onAudioDiagnostic?(event, detail) }
+        audio.onListeningStarted = { [weak self] seconds in
+            guard let self, let id = self.activeEvent else { return }
+            self.presentLens(.question(id, stage: self.lensStage, activity: .listening(seconds: seconds), language: self.language))
+        }
+        audio.onSpeechStarted = { [weak self] in
+            guard let self, let id = self.activeEvent else { return }
+            self.presentLens(.question(id, stage: self.lensStage, activity: .speaking, language: self.language))
+        }
         if enabled { status = audio.permitted ? "Preparing spoken questions" : "Microphone/speech permission required"; startPromptWarmup() }
     }
 
@@ -89,8 +102,9 @@ final class FallCheckIn {
     }
 
     func handle(_ assessment: ServerAssessment, glassesName: String) async {
+        let generation = lensGeneration
         do {
-            guard try await journal.claim(assessment) else { return }
+            guard try await journal.claim(assessment), generation == lensGeneration else { return }
             modelResult = assessment.fallDetected == true ? (assessment.eventId.hasPrefix("test-") ? "TEST · simulated fall confirmed" : "Fall confirmed") :
                 (assessment.fallDetected == false ? "No fall · monitoring continues" : "Analysis unavailable · not a negative result")
             guard !busy else {
@@ -105,13 +119,16 @@ final class FallCheckIn {
                 status = "No fall · event finished · sensors monitoring"
                 try await journal.save(assessment, state: "no_fall"); return
             }
-            guard enabled, audio.permitted else {
-                status = "Fall confirmed · enable microphone/speech for check-in"
-                try await journal.save(assessment, state: "voice_permission_required"); return
-            }
-            guard Date().timeIntervalSince(assessment.triggeredAt) < 60 else {
+            guard let confirmed = LensScreen.confirmed(assessment) else {
                 status = "Old result retained · no delayed spoken question"
                 try await journal.save(assessment, state: "expired"); return
+            }
+            allowsLensPresentation = true; lensReceiptShown = false
+            presentLens(confirmed)
+            guard enabled, audio.permitted else {
+                status = "Fall confirmed · enable microphone/speech for check-in"
+                presentLens(.interrupted(assessment.eventId))
+                try await journal.save(assessment, state: "voice_permission_required"); return
             }
             busy = true; activeEvent = assessment.eventId
             location.refreshIfAuthorized()
@@ -127,7 +144,16 @@ final class FallCheckIn {
         status = reply.displayMessage
     }
 
-    func stop() { activeTask?.cancel(); audio.stop() }
+    func stop() {
+        lensGeneration += 1; allowsLensPresentation = false
+        onLensPresentation?(nil)
+        activeTask?.cancel(); audio.stop()
+    }
+
+    private func presentLens(_ screen: LensScreen) {
+        guard allowsLensPresentation, screen.eventID == activeEvent else { return }
+        onLensPresentation?(screen)
+    }
 
     func callEmergencyContact() async {
         guard canCall, let url = phoneURL else { status = "Add a valid emergency contact phone number first"; return }
@@ -145,6 +171,7 @@ final class FallCheckIn {
 
     private func run(_ assessment: ServerAssessment, glassesName: String) async {
         var transcript: String?
+        var acceptedLocation = false
         audio.clearTranscript()
         do {
             try await setCameraSuspended?(true)
@@ -174,6 +201,7 @@ final class FallCheckIn {
                 try await journal.saveTurn(assessment, stage: stage, state: "upload_pending", transcript: transcript)
                 try Task.checkCancellation()
                 status = "Reply saved · waiting for server analysis"
+                presentLens(.processing(assessment.eventId))
                 var reply = try await delivery.queueCheckIn(submission)
                 let deadline = ContinuousClock.now + .seconds(45)
                 while reply == nil, ContinuousClock.now < deadline {
@@ -183,13 +211,16 @@ final class FallCheckIn {
                 try Task.checkCancellation()
                 guard let reply else {
                     status = "Follow-up pending · reply retained for retry · no late question will replay"
+                    presentLens(.interrupted(assessment.eventId, pending: true))
                     try await journal.save(assessment, state: "follow_up_pending", transcript: transcript)
                     break
                 }
                 status = reply.displayMessage
+                if stage == .initial { acceptedLocation = submission.location != nil }
                 try await journal.saveTurn(assessment, stage: stage, state: reply.next_action ?? "server_update_required", transcript: transcript)
                 if let receipt = reply.notification, !emailAcknowledged {
-                    emailAcknowledged = true
+                    emailAcknowledged = true; lensReceiptShown = true
+                    presentLens(.receipt(assessment.eventId, status: receipt.status, locationIncluded: acceptedLocation))
                     let acknowledgment = try await delivery.checkInPrompt(language: language,
                         kind: receipt.status == "submitted" ? "email_submitted" : "email_failed")
                     try await audio.play(acknowledgment)
@@ -202,6 +233,7 @@ final class FallCheckIn {
                 case "ask_decline_again": stage = .declineRetry; nextKind = "decline"
                 case "ask_call": stage = .call; nextKind = "call"
                 case "phone_call_handoff":
+                    presentLens(.callHandoff(assessment.eventId))
                     pendingCallEvent = assessment.eventId
                     UserDefaults.standard.set(assessment.eventId, forKey: "pendingEmergencyCallEvent")
                     let handoff = try await delivery.checkInPrompt(language: language, kind: "call_handoff")
@@ -211,16 +243,23 @@ final class FallCheckIn {
                     if enabled, !Task.isCancelled, UIApplication.shared.applicationState == .active, phoneURL != nil { await callEmergencyContact() }
                     return
                 default:
+                    if reply.next_action == "done" {
+                        if stage == .call { presentLens(.completed(assessment.eventId, emailStatus: reply.notification?.status)) }
+                        else if !lensReceiptShown { presentLens(.cancelled(assessment.eventId)) }
+                    } else { presentLens(.interrupted(assessment.eventId, pending: true)) }
                     try await journal.save(assessment, state: reply.next_action ?? "server_update_required", transcript: transcript)
                     return await finish()
                 }
                 question = try await delivery.checkInPrompt(language: language, kind: nextKind)
             }
+            presentLens(.interrupted(assessment.eventId, pending: true))
         } catch is CancellationError {
             status = "Check-in cancelled"
+            presentLens(.cancelled(assessment.eventId))
             try? await journal.save(assessment, state: "cancelled", transcript: transcript)
         } catch {
             status = "Check-in unavailable · \(error.localizedDescription)"
+            presentLens(.interrupted(assessment.eventId))
             transcript = transcript ?? audio.partialTranscript
             try? await journal.save(assessment, state: "voice_error", transcript: transcript)
         }
@@ -228,8 +267,10 @@ final class FallCheckIn {
     }
 
     private func ask(_ prompt: Data, stage: CheckInSubmission.Stage) async throws -> String? {
+        lensStage = stage
         for attempt in 0..<2 {
             try Task.checkCancellation()
+            if let id = activeEvent { presentLens(.question(id, stage: stage, activity: .asking, language: language)) }
             status = attempt == 0 ? "Asking through glasses" : "Repeating question once"
             try await audio.play(prompt)
             try Task.checkCancellation()

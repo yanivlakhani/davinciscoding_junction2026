@@ -34,7 +34,7 @@ sdk = add("meta-sdk", isa="XCRemoteSwiftPackageReference", repositoryURL="https:
           requirement={"kind": "exactVersion", "version": "1.0.1"})
 local = add("local-package", isa="XCLocalSwiftPackageReference", relativePath="../packages/DetectionEngine")
 dependencies, frameworks = [], []
-for name, package in [("MWDATCore", sdk), ("MWDATMotion", sdk), ("MWDATCamera", sdk), ("DetectionEngine", local)]:
+for name, package in [("MWDATCore", sdk), ("MWDATMotion", sdk), ("MWDATCamera", sdk), ("MWDATDisplay", sdk), ("DetectionEngine", local)]:
     ref = add("dependency:" + name, isa="XCSwiftPackageProductDependency", package=package, productName=name)
     dependencies.append(ref)
     frameworks.append(add("framework:" + name, isa="PBXBuildFile", productRef=ref))
@@ -43,7 +43,7 @@ resource_phase = add("resources", isa="PBXResourcesBuildPhase", buildActionMask=
 framework_phase = add("frameworks", isa="PBXFrameworksBuildPhase", buildActionMask=2147483647, files=frameworks, runOnlyForDeploymentPostprocessing=0)
 target_config, project_config = [], []
 for name in ("Debug", "Release"):
-    settings = {"CODE_SIGN_STYLE": "Automatic", "CURRENT_PROJECT_VERSION": "26", "MARKETING_VERSION": "0.1.0",
+    settings = {"CODE_SIGN_STYLE": "Automatic", "CURRENT_PROJECT_VERSION": "27", "MARKETING_VERSION": "0.1.0",
         "PRODUCT_NAME": "$(TARGET_NAME)",
         "INFOPLIST_FILE": "FallApp/Info.plist", "GENERATE_INFOPLIST_FILE": "NO", "SWIFT_VERSION": "6.0",
         "IPHONEOS_DEPLOYMENT_TARGET": "17.2", "TARGETED_DEVICE_FAMILY": "1", "SDKROOT": "iphoneos",

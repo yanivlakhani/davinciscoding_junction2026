@@ -33,6 +33,7 @@ final class GlassesController {
     let capture: FallCapture
     let checkIn: FallCheckIn
     let diagnostics: ConnectionDiagnostics
+    let lensDisplay = LensDisplayController()
     private var lastDiagnosticRefreshNs: UInt64 = 0
     @ObservationIgnored private var session: DeviceSession?
     @ObservationIgnored private var motion: MWDATMotion.Motion?
@@ -61,6 +62,8 @@ final class GlassesController {
         showMonitoringConsent = !preferences.agreed
         error = startupError
         diagnostics.record("app_start", "Build \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown")")
+        lensDisplay.onDiagnostic = { [weak self] event, detail in self?.diagnostics.record(event, detail) }
+        checkIn.onLensPresentation = { [weak self] screen in self?.lensDisplay.present(screen) }
         checkIn.onAudioDiagnostic = { [weak self] event, detail in self?.diagnostics.record(event, detail) }
         checkIn.setCameraSuspended = { [weak self] value in try await self?.capture.suspendForCheckIn(value) }
         checkIn.onFinished = { [weak self] in
@@ -122,6 +125,7 @@ final class GlassesController {
 
     isolated deinit {
         checkIn.stop()
+        lensDisplay.detach()
         for task in tasks { task.cancel() }
         sampleTask?.cancel(); processingTask?.cancel(); motionInbox?.finish(); motion?.stop(); session?.stop()
         motionTokens.clear(); sessionTokens.clear()
@@ -163,9 +167,20 @@ final class GlassesController {
         }
     }
 
+    func testLensDisplay() async {
+        guard connected, !checkIn.busy, !capture.busy, !startingVoiceTest else { return }
+        startingVoiceTest = true; defer { startingVoiceTest = false }
+        do {
+            let assessment = try await delivery.confirmedFallTest()
+            guard connected, wantsMonitoring else { return }
+            lensDisplay.present(.displayTest(assessment.eventId))
+        } catch { self.error = "Lens test unavailable · \(error.localizedDescription)" }
+    }
+
     func disconnect() {
         diagnostics.record("disconnect_tapped", "User stopped monitoring")
         checkIn.stop()
+        lensDisplay.present(nil)
         monitoringContexts.removeAll()
         preferences.requestMonitoring(false)
         wantsMonitoring = false
@@ -256,6 +271,7 @@ final class GlassesController {
             "samples": String(status.received),
             "motion": motionState,
             "camera": capture.status,
+            "lens": lensDisplay.status,
             "voiceBusy": String(checkIn.busy),
             "appAudio": checkIn.audioDiagnostic,
             "error": error ?? ""
@@ -275,8 +291,9 @@ final class GlassesController {
         if wantsMonitoring, state == .paused || state == .stopped {
             disconnectionAlerts.interrupted(state == .paused ? "The glasses session paused." : "The glasses connection ended.")
         }
+        if state == .started, let session { lensDisplay.attach(session) }
         if state == .started, motion == nil, !startingMotion { await startMotion() }
-        if state == .paused { motionState = "Session paused; motion unavailable" }
+        if state == .paused { lensDisplay.suspend(); motionState = "Session paused; motion unavailable" }
         if state == .stopped { await cleanup() }
     }
 
@@ -404,6 +421,7 @@ final class GlassesController {
         cleaningUp = true; defer { cleaningUp = false }
         diagnostics.record("session_cleanup", "Releasing camera and motion resources")
         connected = false
+        lensDisplay.detach()
         motion?.stop(); sampleTask?.cancel(); await sampleTask?.value; sampleTask = nil
         motionInbox?.finish()
         await processingTask?.value; processingTask = nil; motionInbox = nil

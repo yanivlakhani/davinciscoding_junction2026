@@ -14,6 +14,8 @@ final class CheckInAudio: NSObject, AVAudioPlayerDelegate {
     private var engine: AVAudioEngine?
     private var sessionActive = false
     var onDiagnostic: ((String, String) -> Void)?
+    var onListeningStarted: ((Double) -> Void)?
+    var onSpeechStarted: (() -> Void)?
     private let input = SpeechInput()
     private var player: AVAudioPlayer?
     private var playback: CheckedContinuation<Void, Error>?
@@ -146,6 +148,7 @@ final class CheckInAudio: NSObject, AVAudioPlayerDelegate {
                         if let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             if text != self.lastText {
                                 if self.lastText.isEmpty {
+                                    self.onSpeechStarted?()
                                     // Ten seconds is the window to START speaking, not a cutoff mid-answer.
                                     self.timeout?.cancel()
                                     self.timeout = Task { [weak self] in
@@ -182,6 +185,7 @@ final class CheckInAudio: NSObject, AVAudioPlayerDelegate {
                     }
                     self.finishListening(.success(self.lastText.isEmpty ? nil : self.lastText))
                 }
+                onListeningStarted?(seconds)
             }
         } onCancel: { Task { @MainActor [weak self] in self?.stop() } }
     }

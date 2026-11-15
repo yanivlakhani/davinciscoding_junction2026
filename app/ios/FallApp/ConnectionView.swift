@@ -106,6 +106,11 @@ struct ConnectionView: View {
                 }
                 VStack(spacing: 18) {
                     statusRow("Connection", value: controller.connection, color: controller.connected ? .green : .orange)
+                    statusRow("Glasses display", value: controller.lensDisplay.status, color: .blue)
+                    #if DEBUG
+                    Button("Test lens display · no voice or alert") { Task { await controller.testLensDisplay() } }
+                        .disabled(!controller.connected || controller.checkIn.busy || controller.capture.busy || controller.startingVoiceTest)
+                    #endif
                     TimelineView(.periodic(from: .now, by: 1)) { _ in
                         let recent = freshData
                         statusRow("Sensor data", value: recent ? "Receiving · \(controller.status.received) samples" : controller.motionState,
