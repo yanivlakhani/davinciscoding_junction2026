@@ -263,6 +263,9 @@ try {
     return {
       hasData: !!window.TRUST_DATA,
       runtimeTotal: window.TRUST_DATA?.runtimeTotal,
+      evidenceSource: window.TRUST_DATA?.evidence?.source,
+      evidenceRun: window.TRUST_DATA?.evidence?.run?.id,
+      packagesChecked: window.TRUST_DATA?.run?.packagesChecked,
       headline: t("trust-headline"),
       runtimeN: t("trust-runtime-n"),
       vulnLine: t("trust-vuln-line"),
@@ -277,6 +280,10 @@ try {
     };
   });
   check("SBOM data loaded", trust.hasData, true);
+  // The ticks must rest on SBOMs downloaded from CRACI for a named run, not
+  // on the lockfile fallback.
+  check("ticks rest on CRACI's own record", trust.evidenceSource, "craci");
+  check("the record names the run it came from", /^\d+$/.test(trust.evidenceRun || ""), true);
   check("record traces to a real run", trust.headline, "Verified clean");
   check("runtime count is a real number", Number.isInteger(trust.runtimeTotal) && trust.runtimeTotal > 0, true);
   check("runtime count surfaced in copy", trust.runtimeN, String(trust.runtimeTotal));
@@ -285,9 +292,10 @@ try {
   check("'checked' absolute time is present", /UTC$/.test(trust.when), true);
   check("five purpose groups rendered", trust.groupCount, 5);
   check("groups start collapsed", trust.firstGroupOpen, false);
-  check("packages-checked stat surfaces CRACI number", trust.pkgs, "181");
+  check("packages-checked is a real total", Number.isInteger(trust.packagesChecked) && trust.packagesChecked > 0, true);
+  check("packages-checked stat shows the total CRACI recorded", trust.pkgs, String(trust.packagesChecked));
   check("known-issues stat matches 0 from dashboard", trust.vulns, "0");
-  check("jobs stat matches 5/5 from dashboard", trust.jobs, "5/5");
+  check("jobs stat shows all five CRACI jobs succeeded", trust.jobs, "5/5");
   check("trust tab lights up", trust.tabActive, true);
 
   // Tapping a group should reveal the real component names, not generic text.

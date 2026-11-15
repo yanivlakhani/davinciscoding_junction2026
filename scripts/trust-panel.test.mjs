@@ -8,11 +8,10 @@
 // CRACI are replaced by a local server that answers the way their published
 // API descriptions say they do.
 //
-// What this cannot prove: that CRACI's real SBOMs name components exactly
-// the way the fixtures below do. The fixtures follow the CycloneDX spec
-// (package URLs, with and without encoding, with and without a `group`),
-// but the first real download is the real test. If names fail to match,
-// the build prints each one as a WARNING instead of ticking it.
+// The fixtures write component names more ways than CRACI does. Its real
+// SBOMs (see supply-chain/craci/) give every component a package URL, such
+// as pkg:pypi/fastapi@0.163.0?file_name=... or pkg:npm/%40scope/name@1.2.3,
+// and the first test below runs the build against those real files.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -58,9 +57,15 @@ const lockedGlasses = JSON.parse(readFileSync(join(project, "supply-chain", "gla
 
 const BACKEND = ["anthropic", "opencv-python-headless", "numpy", "httpx", "fastapi", "python-multipart", "pydantic"];
 
+// The run the hand-read dashboard figure belongs to, taken from the script
+// so these tests keep working when that figure is re-read for a newer run.
+const DASHBOARD_RUN_STARTED = readFileSync(join(project, "scripts", "build-trust-panel.mjs"), "utf8")
+  .match(/readForRunStartedAt:\s*"([^"]+)"/)[1];
+const minutesAfterDashboardRun = (m) => new Date(Date.parse(DASHBOARD_RUN_STARTED) + m * 60000).toISOString();
+
 // A stand-in for what CRACI records. Names are deliberately written the
 // different ways a recorder might write them.
-function craciRecord(dir, { dropBackend = [], dropGlasses = [], glassesVersion = (c) => c.version, startedAt = "2026-11-14T21:01:58Z" } = {}) {
+function craciRecord(dir, { dropBackend = [], dropGlasses = [], glassesVersion = (c) => c.version, startedAt = minutesAfterDashboardRun(-1), craciJobsTotal = 2 } = {}) {
   const out = join(dir, "supply-chain", "craci");
   mkdirSync(out, { recursive: true });
 
@@ -90,7 +95,15 @@ function craciRecord(dir, { dropBackend = [], dropGlasses = [], glassesVersion =
   const bom = (components) => JSON.stringify({ bomFormat: "CycloneDX", specVersion: "1.7", components });
   writeFileSync(join(out, "backend.cdx.json"), bom(backend));
   writeFileSync(join(out, "glasses-ui.cdx.json"), bom(glasses));
-  writeFileSync(join(out, "run.json"), JSON.stringify({ runId: "111", runUrl: "https://example.test/run/111", commit: "abc1234", startedAt, fetchedAt: "2026-11-15T00:00:00Z" }));
+  writeFileSync(join(out, "run.json"), JSON.stringify({
+    runId: "111", runUrl: "https://example.test/run/111", commit: "abc1234",
+    startedAt, completedAt: new Date(Date.parse(startedAt) + 37000).toISOString(),
+    craciJobsTotal, craciJobsSucceeded: craciJobsTotal,
+    sboms: [{ key: "backend", file: "backend.cdx.json" }, { key: "glasses-ui", file: "glasses-ui.cdx.json" }],
+    fetchedAt: "2026-11-15T00:00:00Z",
+  }));
+  // Top-level components in each file, which is what the build counts.
+  return { backend: backend.length, glasses: glasses.length };
 }
 
 test("the committed data file matches what its inputs produce", () => {
@@ -128,6 +141,32 @@ test("with CRACI's record: every tick is backed by it, however the names are wri
   rmSync(dir, { recursive: true });
 });
 
+test("with CRACI's record: the run's figures are worked out from it, not typed in", () => {
+  const dir = sandbox();
+  const startedAt = minutesAfterDashboardRun(2);
+  const counted = craciRecord(dir, { startedAt });
+  assert.equal(build(dir, "--strict").status, 0);
+  const data = readData(dir);
+  assert.equal(data.run.verified, startedAt);
+  assert.equal(data.run.durationSeconds, 37);
+  assert.deepEqual([data.run.jobsSucceeded, data.run.jobsTotal], [2, 2]);
+  assert.equal(data.run.packagesChecked, counted.backend + counted.glasses);
+  assert.deepEqual(data.evidence.componentsRecorded, { backend: counted.backend, "glasses-ui": counted.glasses });
+  // The one figure that is still typed in says where it came from.
+  assert.equal(data.evidence.vulnerabilities.readForRunStartedAt, DASHBOARD_RUN_STARTED);
+  rmSync(dir, { recursive: true });
+});
+
+test("a packages total that leaves out a CRACI job is flagged", () => {
+  const dir = sandbox();
+  craciRecord(dir, { craciJobsTotal: 5 });
+  const r = build(dir);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /added up from 2 downloaded SBOMs, but the run had 5 CRACI jobs/);
+  assert.equal(build(dir, "--strict").status, 1);
+  rmSync(dir, { recursive: true });
+});
+
 test("a component CRACI did not record loses its tick, and only that one", () => {
   const dir = sandbox();
   craciRecord(dir, { dropBackend: ["httpx"], dropGlasses: ["scheduler"] });
@@ -162,13 +201,28 @@ test("half a CRACI record is an error, not a partial pass", () => {
   rmSync(dir, { recursive: true });
 });
 
-test("a record from a different run than the dashboard totals fails strict", () => {
+test("SBOMs that do not say which run they came from are an error", () => {
   const dir = sandbox();
-  craciRecord(dir, { startedAt: "2026-11-15T09:00:00Z" });
+  craciRecord(dir);
+  const runJson = join(dir, "supply-chain", "craci", "run.json");
+  writeFileSync(runJson, JSON.stringify({ runId: "111", startedAt: minutesAfterDashboardRun(0) }));
+  let r = build(dir);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /does not describe the run/);
+  rmSync(runJson);
+  r = build(dir);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /run\.json is missing/);
+  rmSync(dir, { recursive: true });
+});
+
+test("a record from a different run than the dashboard reading fails strict", () => {
+  const dir = sandbox();
+  craciRecord(dir, { startedAt: minutesAfterDashboardRun(600) });
   assert.equal(build(dir).status, 0);
   const strict = build(dir, "--strict");
   assert.equal(strict.status, 1);
-  assert.match(strict.stderr, /Update RUN from the dashboard/);
+  assert.match(strict.stderr, /Read it off the dashboard for that run and update DASHBOARD/);
   rmSync(dir, { recursive: true });
 });
 
@@ -196,8 +250,9 @@ test("--check notices a data file that no longer matches its inputs", () => {
 // ---------------------------------------------------------------------------
 const TOKEN = "test-token-do-not-leak";
 
-function fakeServices({ backendConclusion = "success", sbomStatus = 200 } = {}) {
+function fakeServices({ backendConclusion = "success", sbomStatus = 200, extraJobs = [] } = {}) {
   const seen = [];
+  let served = 0;
   const server = createServer((req, res) => {
     const url = new URL(req.url, "http://localhost");
     seen.push({ path: url.pathname, query: Object.fromEntries(url.searchParams), auth: req.headers.authorization });
@@ -207,15 +262,26 @@ function fakeServices({ backendConclusion = "success", sbomStatus = 200 } = {}) 
     }
     if (url.pathname.endsWith("/actions/runs/555/jobs")) {
       return json({ jobs: [
-        { id: 9001, name: "Backend (PyPI)", conclusion: backendConclusion },
-        { id: 9002, name: "Glasses UI (npm)", conclusion: "success" },
-        { id: 9003, name: "Companion app (npm)", conclusion: "success" },
-        { id: 9004, name: "Strict policy (expected to block Chrome download)", conclusion: "success" },
+        { id: 9001, name: "Backend (PyPI)", conclusion: backendConclusion, labels: ["craci"], completed_at: "2026-11-15T00:10:49Z" },
+        { id: 9002, name: "Glasses UI (npm)", conclusion: "success", labels: ["craci"], completed_at: "2026-11-15T00:10:12Z" },
+        { id: 9003, name: "Companion app (npm)", conclusion: "success", labels: ["craci"], completed_at: "2026-11-15T00:10:27Z" },
+        { id: 9004, name: "Strict policy (expected to block Chrome download)", conclusion: "success", labels: ["craci"], completed_at: "2026-11-15T00:10:24Z" },
+        { id: 9005, name: "Reviewed policy (Chrome download named explicitly)", conclusion: "success", labels: ["craci"], completed_at: "2026-11-15T00:10:22Z" },
+        // Runs on a GitHub-hosted runner, so CRACI has no record of it.
+        { id: 9006, name: "Trust panel matches the evidence", conclusion: "success", labels: ["ubuntu-latest"], completed_at: "2026-11-15T00:10:10Z" },
+        ...extraJobs,
       ] });
     }
     if (url.pathname === "/v1preview1/sbom") {
       if (sbomStatus !== 200) return json({ title: "nope" }, sbomStatus);
-      return json({ bomFormat: "CycloneDX", specVersion: "1.7", components: [{ name: `job-${url.searchParams.get("job_id")}` }] });
+      if (url.searchParams.get("job_id") === "9006") return json({ title: "no such job" }, 404);
+      // Like CRACI, stamp every download with a new serial number and time.
+      served += 1;
+      return json({
+        bomFormat: "CycloneDX", specVersion: "1.7", serialNumber: `urn:uuid:download-${served}`,
+        metadata: { timestamp: `2026-11-15T00:20:${String(served).padStart(2, "0")}Z`, component: { name: "job" } },
+        components: [{ name: `job-${url.searchParams.get("job_id")}` }],
+      });
     }
     json({ message: "not found" }, 404);
   });
@@ -244,7 +310,7 @@ test("fetch: refuses to run without a token and says how to get one", async () =
   rmSync(dir, { recursive: true });
 });
 
-test("fetch: downloads one SBOM per product job and records where it came from", async () => {
+test("fetch: downloads one SBOM per CRACI job and records where it came from", async () => {
   const dir = sandbox();
   const { server, seen, base } = await fakeServices();
   const r = await runFetch(dir, base, { CRACI_API_TOKEN: TOKEN });
@@ -252,22 +318,59 @@ test("fetch: downloads one SBOM per product job and records where it came from",
   assert.equal(r.status, 0, r.stderr);
 
   const out = join(dir, "supply-chain", "craci");
-  for (const f of ["backend.cdx.json", "glasses-ui.cdx.json", "mobile-app.cdx.json", "run.json"]) {
+  for (const f of ["backend.cdx.json", "glasses-ui.cdx.json", "mobile-app.cdx.json", "policy-strict.cdx.json", "policy-reviewed.cdx.json", "run.json"]) {
     assert.ok(existsSync(join(out, f)), `${f} should have been written`);
   }
   const record = JSON.parse(readFileSync(join(out, "run.json"), "utf8"));
   assert.equal(record.runId, "555");
   assert.equal(record.commit, "deadbeefcafe");
-  assert.deepEqual([record.jobsSucceeded, record.jobsTotal], [4, 4]);
-  assert.deepEqual(record.sboms.map((s) => s.jobId), ["9001", "9002", "9003"]);
+  assert.deepEqual([record.jobsSucceeded, record.jobsTotal], [6, 6]);
+  // The GitHub-hosted job is not a CRACI job and is never asked for.
+  assert.deepEqual([record.craciJobsSucceeded, record.craciJobsTotal], [5, 5]);
+  assert.deepEqual(record.sboms.map((s) => s.jobId), ["9001", "9002", "9003", "9004", "9005"]);
+  assert.equal(record.completedAt, "2026-11-15T00:10:49Z");
 
   // CRACI is asked for the right jobs, with the token, in the documented form.
   const sbomCalls = seen.filter((c) => c.path === "/v1preview1/sbom");
-  assert.deepEqual(sbomCalls.map((c) => c.query.job_id), ["9001", "9002", "9003"]);
+  assert.deepEqual(sbomCalls.map((c) => c.query.job_id), ["9001", "9002", "9003", "9004", "9005"]);
   assert.ok(sbomCalls.every((c) => c.query.provider === "github" && c.auth === `Bearer ${TOKEN}`));
   // The CRACI token goes to CRACI only, and appears nowhere in the output.
   assert.ok(seen.filter((c) => c.path !== "/v1preview1/sbom").every((c) => c.auth === undefined));
   assert.ok(!(r.stdout + r.stderr + readFileSync(join(out, "run.json"), "utf8")).includes(TOKEN));
+
+  // The panel builds from exactly what was downloaded.
+  const built = build(dir);
+  assert.equal(built.status, 0, built.stderr);
+  const data = readData(dir);
+  assert.equal(data.run.packagesChecked, 5);
+  assert.deepEqual([data.run.jobsSucceeded, data.run.jobsTotal], [5, 5]);
+  rmSync(dir, { recursive: true });
+});
+
+test("fetch: two downloads of the same job differ only in CRACI's stamp, and contentSha256 says so", async () => {
+  const dir = sandbox();
+  const { server, base } = await fakeServices();
+  const out = join(dir, "supply-chain", "craci", "run.json");
+  const first = await runFetch(dir, base, { CRACI_API_TOKEN: TOKEN });
+  const a = JSON.parse(readFileSync(out, "utf8")).sboms;
+  const second = await runFetch(dir, base, { CRACI_API_TOKEN: TOKEN });
+  const b = JSON.parse(readFileSync(out, "utf8")).sboms;
+  server.close();
+  assert.deepEqual([first.status, second.status], [0, 0], first.stderr + second.stderr);
+  assert.ok(a.every((s, i) => s.sha256 !== b[i].sha256), "the stand-in stamps each download, so file hashes differ");
+  assert.deepEqual(a.map((s) => s.contentSha256), b.map((s) => s.contentSha256));
+  assert.equal(new Set(a.map((s) => s.contentSha256)).size, a.length, "different jobs must not hash alike");
+  rmSync(dir, { recursive: true });
+});
+
+test("fetch: a CRACI job the script does not know stops it, so the total cannot come up short", async () => {
+  const dir = sandbox();
+  const { server, base } = await fakeServices({ extraJobs: [{ id: 9007, name: "Something new", conclusion: "success", labels: ["craci"] }] });
+  const r = await runFetch(dir, base, { CRACI_API_TOKEN: TOKEN });
+  server.close();
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /does not know: "Something new"/);
+  assert.ok(!existsSync(join(dir, "supply-chain", "craci")));
   rmSync(dir, { recursive: true });
 });
 

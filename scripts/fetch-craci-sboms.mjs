@@ -37,15 +37,38 @@ const BRANCH = "craci";
 const GITHUB_API = process.env.GITHUB_API_URL || "https://api.github.com";
 const CRACI_API = process.env.CRACI_API_URL || "https://api.craci.com";
 
-// The jobs whose installs make up the product, by the name they have in
-// .github/workflows/supply-chain.yml on the `craci` branch. The two policy
-// demonstration jobs install the same things as the companion app job and
-// are not part of the record.
+// The jobs to download, by the name they have in
+// .github/workflows/supply-chain.yml on the `craci` branch.
+//
+// The first three are the installs that make up the product, and are what
+// the Trust panel's ticks are checked against. The two policy jobs install
+// the same things as the companion app job and decide no ticks. They are
+// downloaded because the "packages checked" total on CRACI's dashboard is
+// the sum over every CRACI job in the run, and keeping all of them here
+// lets the build add that total up from the files rather than have it
+// typed in by hand.
 const JOBS = [
-  { key: "backend",    name: "Backend (PyPI)",      file: "backend.cdx.json",    required: true  },
-  { key: "glasses-ui", name: "Glasses UI (npm)",    file: "glasses-ui.cdx.json", required: true  },
-  { key: "mobile-app", name: "Companion app (npm)", file: "mobile-app.cdx.json", required: false },
+  { key: "backend",         name: "Backend (PyPI)",      file: "backend.cdx.json",    required: true  },
+  { key: "glasses-ui",      name: "Glasses UI (npm)",    file: "glasses-ui.cdx.json", required: true  },
+  { key: "mobile-app",      name: "Companion app (npm)", file: "mobile-app.cdx.json", required: false },
+  { key: "policy-strict",   name: "Strict policy (expected to block Chrome download)",  file: "policy-strict.cdx.json",   required: false },
+  { key: "policy-reviewed", name: "Reviewed policy (Chrome download named explicitly)", file: "policy-reviewed.cdx.json", required: false },
 ];
+
+// A job ran on CRACI if its `runs-on` label says so. Jobs on GitHub-hosted
+// runners (the workflow has one, which only compares files) leave no
+// record at CRACI and are not counted as CRACI jobs.
+const RUNNER_LABEL = "craci";
+
+// CRACI builds the SBOM document when it is requested, and stamps each
+// download with a new serial number and the time of the request. Everything
+// else is the same from one download to the next, so this is the hash to
+// compare when checking a file here against a fresh download.
+function contentHash(sbom) {
+  const { serialNumber, metadata, ...rest } = sbom;
+  const { timestamp, ...stableMetadata } = metadata || {};
+  return createHash("sha256").update(JSON.stringify({ ...rest, metadata: stableMetadata })).digest("hex");
+}
 
 function fail(message) {
   console.error(`fetch-craci-sboms: ${message}`);
@@ -136,8 +159,22 @@ for (const want of JOBS) {
     specVersion: sbom.specVersion ?? null,
     components: Array.isArray(sbom.components) ? sbom.components.length : 0,
     sha256: createHash("sha256").update(text).digest("hex"),
+    contentSha256: contentHash(sbom),
   });
 }
+
+// Every CRACI job in the run has to be one this script knows about, or the
+// package total added up from the files would silently leave a job out.
+const craciJobs = ghJobs.filter((j) => (j.labels || []).includes(RUNNER_LABEL));
+const known = new Set(JOBS.map((j) => j.name));
+const unknown = craciJobs.filter((j) => !known.has(j.name));
+if (unknown.length) {
+  fail(
+    `run ${run.id} has CRACI jobs this script does not know: ${unknown.map((j) => `"${j.name}"`).join(", ")}.\n` +
+    "  Add them to JOBS, or the packages-checked total would be short."
+  );
+}
+const completedTimes = ghJobs.map((j) => Date.parse(j.completed_at)).filter(Number.isFinite);
 
 // ---- 4. Write the record --------------------------------------------------
 mkdirSync(outDir, { recursive: true });
@@ -152,18 +189,24 @@ const record = {
   runUrl: run.html_url,
   commit: run.head_sha,
   startedAt: run.run_started_at || run.created_at,
+  completedAt: completedTimes.length ? new Date(Math.max(...completedTimes)).toISOString().replace(".000Z", "Z") : null,
   conclusion: run.conclusion,
   jobsTotal: ghJobs.length,
   jobsSucceeded: ghJobs.filter((j) => j.conclusion === "success").length,
-  // sha256 is of the file exactly as CRACI served it, so anyone holding a
-  // token can download the same job's SBOM and confirm nothing was edited.
-  sboms: fetched.map(({ key, name, file, jobId, conclusion, specVersion, components, sha256 }) =>
-    ({ key, job: name, file, jobId, conclusion, specVersion, components, sha256 })),
+  craciJobsTotal: craciJobs.length,
+  craciJobsSucceeded: craciJobs.filter((j) => j.conclusion === "success").length,
+  // sha256 is of the file as written here. contentSha256 leaves out the
+  // serial number and timestamp CRACI stamps on each download, so anyone
+  // holding a token can download the same job's SBOM, hash it the same
+  // way, and confirm nothing else differs.
+  sboms: fetched.map(({ key, name, file, jobId, conclusion, specVersion, components, sha256, contentSha256 }) =>
+    ({ key, job: name, file, jobId, conclusion, specVersion, components, sha256, contentSha256 })),
   fetchedAt: new Date().toISOString(),
 };
 writeFileSync(join(outDir, "run.json"), JSON.stringify(record, null, 2) + "\n");
 
 console.log(`CRACI record for run #${record.runNumber} (${record.runId}), commit ${String(record.commit).slice(0, 7)}`);
-for (const f of fetched) console.log(`  ${f.file.padEnd(22)} ${String(f.components).padStart(4)} components`);
-console.log(`  jobs: ${record.jobsSucceeded}/${record.jobsTotal} succeeded, started ${record.startedAt}`);
+for (const f of fetched) console.log(`  ${f.file.padEnd(26)} ${String(f.components).padStart(4)} components`);
+console.log(`  ${"total".padEnd(26)} ${String(fetched.reduce((s, f) => s + f.components, 0)).padStart(4)}`);
+console.log(`  CRACI jobs: ${record.craciJobsSucceeded}/${record.craciJobsTotal} succeeded, started ${record.startedAt}`);
 console.log("Next: node scripts/build-trust-panel.mjs --strict");

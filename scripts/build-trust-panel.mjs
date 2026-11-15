@@ -41,19 +41,29 @@ for (const f of flags) {
 }
 
 // ---------------------------------------------------------------------------
-// Totals from the CRACI dashboard for the run on 2026-11-14. CRACI's API
-// does not expose the vulnerability total, so these are read off the
-// dashboard by hand. Update them when a new run completes. "verified" is
-// the UTC timestamp the CRACI run started; it is what the UI shows as
-// "last checked".
+// The one figure CRACI's API does not expose is the run's known
+// vulnerability total (its SBOMs carry no `vulnerabilities` section and
+// there is no endpoint for it). It is read off the CRACI dashboard by hand,
+// and this records which run it was read for. When the downloaded record
+// is from a different run the build says so, and --strict fails, until
+// someone looks at the dashboard for that run and updates this.
 // ---------------------------------------------------------------------------
-const RUN = {
-  verified: "2026-11-14T21:02:06Z",
+const DASHBOARD = {
+  readForRunStartedAt: "2026-11-14T21:02:06Z",
+  knownVulnerabilities: 0,
+};
+
+// The rest of that run's dashboard totals. Used only while CRACI's record
+// has not been downloaded; once it has, the same figures are worked out
+// from the record instead (see runFromRecord below). "verified" is the UTC
+// time the run started, which the UI shows as "last checked".
+const DASHBOARD_RUN = {
+  verified: DASHBOARD.readForRunStartedAt,
   durationSeconds: 42,
   jobsTotal: 5,
   jobsSucceeded: 5,
-  packagesChecked: 181,      // from CRACI dashboard
-  knownVulnerabilities: 0,   // from CRACI dashboard
+  packagesChecked: 181,
+  knownVulnerabilities: DASHBOARD.knownVulnerabilities,
   runner: "CRACI (Helsinki)",
 };
 
@@ -252,25 +262,68 @@ function loadCraciEvidence() {
   const path = (f) => join(root, CRACI_DIR, f);
   const has = Object.fromEntries(Object.entries(CRACI_FILES).map(([k, f]) => [k, existsSync(path(f))]));
   if (!has.backend && !has.glasses) return null;
+  const refetch = "Re-run scripts/fetch-craci-sboms.mjs, or remove the directory to fall back to the lockfile list.";
   if (!has.backend || !has.glasses) {
     throw new Error(
       `${CRACI_DIR} holds only part of a CRACI record ` +
-      `(backend: ${has.backend ? "present" : "missing"}, glasses-ui: ${has.glasses ? "present" : "missing"}). ` +
-      `Re-run scripts/fetch-craci-sboms.mjs, or remove the directory to fall back to the lockfile list.`
+      `(backend: ${has.backend ? "present" : "missing"}, glasses-ui: ${has.glasses ? "present" : "missing"}). ${refetch}`
     );
   }
+  // run.json says which run the files came from and lists every job that
+  // was downloaded. Without it the files are SBOMs of nothing in particular.
+  if (!existsSync(path("run.json"))) {
+    throw new Error(`${CRACI_DIR} holds only part of a CRACI record (run.json is missing). ${refetch}`);
+  }
+  const run = JSON.parse(readFileSync(path("run.json"), "utf8"));
+  const usable =
+    typeof run.startedAt === "string" && Number.isInteger(run.craciJobsTotal) &&
+    Number.isInteger(run.craciJobsSucceeded) && Array.isArray(run.sboms) && run.sboms.length > 0;
+  if (!usable) {
+    throw new Error(`${CRACI_DIR}/run.json does not describe the run (written by an older fetch script?). ${refetch}`);
+  }
+
   const load = (key) => {
     const sbom = loadSbom(`${CRACI_DIR}/${CRACI_FILES[key]}`);
     const index = indexRecorded(sbom);
     return { index, count: index.size, vulnerabilities: Array.isArray(sbom.vulnerabilities) ? sbom.vulnerabilities.length : null };
   };
-  const evidence = { backend: load("backend"), glasses: load("glasses"), mobile: has.mobile ? load("mobile") : null };
-  evidence.run = existsSync(path("run.json")) ? JSON.parse(readFileSync(path("run.json"), "utf8")) : null;
+  const evidence = { backend: load("backend"), glasses: load("glasses"), mobile: has.mobile ? load("mobile") : null, run };
+
+  // How many components CRACI recorded in each downloaded job, counted from
+  // the files themselves rather than taken from run.json's word for it.
+  evidence.componentsPerJob = {};
+  for (const s of run.sboms) {
+    if (!existsSync(path(s.file))) {
+      throw new Error(`${CRACI_DIR}/run.json lists ${s.file}, which is missing. ${refetch}`);
+    }
+    const sbom = loadSbom(`${CRACI_DIR}/${s.file}`);
+    evidence.componentsPerJob[s.key] = Array.isArray(sbom.components) ? sbom.components.length : 0;
+  }
   return evidence;
 }
 
 const craci = loadCraciEvidence();
 const warnings = [];
+
+// With the record present, the run's figures come from it: when the run
+// started, how many of its CRACI jobs succeeded, and how many packages
+// CRACI recorded across them. That last sum is the dashboard's "packages
+// checked": for the first run the dashboard showed 181, and the five
+// per-job SBOMs of that run hold 30 + 28 + 67 + 28 + 28 = 181 components.
+function runFromRecord({ run, componentsPerJob }) {
+  const seconds = (Date.parse(run.completedAt) - Date.parse(run.startedAt)) / 1000;
+  return {
+    verified: run.startedAt,
+    ...(Number.isFinite(seconds) ? { durationSeconds: Math.round(seconds) } : {}),
+    jobsTotal: run.craciJobsTotal,
+    jobsSucceeded: run.craciJobsSucceeded,
+    packagesChecked: Object.values(componentsPerJob).reduce((a, b) => a + b, 0),
+    knownVulnerabilities: DASHBOARD.knownVulnerabilities,   // from CRACI dashboard
+    runner: DASHBOARD_RUN.runner,
+  };
+}
+
+const RUN = craci ? runFromRecord(craci) : DASHBOARD_RUN;
 
 // A component is shown as verified only when the CRACI run succeeded and its
 // vulnerability check came back clean. CRACI reports the vulnerability total
@@ -365,19 +418,19 @@ const evidence = craci
   ? {
       source: "craci",
       basis: "Each tick means CRACI recorded this component being fetched during the build, and the run reported no known vulnerabilities.",
-      run: craci.run
-        ? {
-            id: craci.run.runId,
-            url: craci.run.runUrl,
-            commit: craci.run.commit,
-            startedAt: craci.run.startedAt,
-            fetchedAt: craci.run.fetchedAt,
-          }
-        : null,
-      componentsRecorded: {
-        backend: craci.backend.count,
-        glasses: craci.glasses.count,
-        ...(craci.mobile ? { mobile: craci.mobile.count } : {}),
+      run: {
+        id: craci.run.runId,
+        url: craci.run.runUrl,
+        commit: craci.run.commit,
+        startedAt: craci.run.startedAt,
+        fetchedAt: craci.run.fetchedAt,
+      },
+      // Per CRACI job; these add up to run.packagesChecked.
+      componentsRecorded: craci.componentsPerJob,
+      vulnerabilities: {
+        known: DASHBOARD.knownVulnerabilities,
+        source: "CRACI dashboard, read by hand; CRACI's API does not expose this figure",
+        readForRunStartedAt: DASHBOARD.readForRunStartedAt,
       },
       verified: verifiedCount,
       of: runtimeTotal,
@@ -390,16 +443,22 @@ const evidence = craci
     };
 
 if (craci) {
-  // The dashboard totals above are typed in by hand. If the downloaded
-  // record is from a different run, or disagrees, say so.
+  // The vulnerability total is typed in by hand. If it was read for a
+  // different run than the downloaded record, or disagrees with it, say so.
   // GitHub's run start and the dashboard's first job start are seconds
   // apart for the same run, so allow a few minutes before calling it a
   // different one.
   const SAME_RUN_MS = 10 * 60 * 1000;
-  if (craci.run?.startedAt && Math.abs(Date.parse(craci.run.startedAt) - Date.parse(RUN.verified)) > SAME_RUN_MS) {
+  if (Math.abs(Date.parse(craci.run.startedAt) - Date.parse(DASHBOARD.readForRunStartedAt)) > SAME_RUN_MS) {
     warnings.push(
-      `RUN.verified is ${RUN.verified} but the downloaded CRACI record is from the run started ${craci.run.startedAt}. ` +
-      `Update RUN from the dashboard for that run.`
+      `the vulnerability total (${DASHBOARD.knownVulnerabilities}) was read off the CRACI dashboard for the run started ${DASHBOARD.readForRunStartedAt}, ` +
+      `but the downloaded record is from the run started ${craci.run.startedAt}. ` +
+      `Read it off the dashboard for that run and update DASHBOARD.`
+    );
+  }
+  if (craci.run.sboms.length !== craci.run.craciJobsTotal) {
+    warnings.push(
+      `packages checked is added up from ${craci.run.sboms.length} downloaded SBOMs, but the run had ${craci.run.craciJobsTotal} CRACI jobs.`
     );
   }
   const recordedVulns = [craci.backend, craci.glasses, craci.mobile]
