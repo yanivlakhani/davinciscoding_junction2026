@@ -77,12 +77,12 @@ The Junction 2026 theme is *"Moving the Centre of Gravity."* Ours does it in not
 
 ---
 
-### 🧠 The ML Engine & Engineering Pragmatism
-During the hackathon, we successfully trained and tested a custom Machine Learning model to classify falls based on IMU data. You can find the training scripts and dataset in the `ml-engine` branch of our repository. 
+### 🧠 The ML Engine Branch
+During the hackathon, we also explored a purely ML-based approach, training and testing a custom Machine Learning model to classify falls using the IMU data. 
 
-However, for the final 48-hour MVP submission, we chose to pivot to a **deterministic threshold-based rule** for the Stage 1 Edge trigger. Through rigorous testing, we found that a deterministic approach provided 100% reliability for our specific live-demo constraints without the black-box unpredictability of a lightweight model. 
+While the deterministic threshold-based rule is currently active for the MVP (as it performed exceptionally well for our live demo constraints), the ML model also achieved solid results during our tests. 
 
-We kept the ML Engine code in a dedicated branch to demonstrate our edge-AI capabilities and future roadmap, but we are proud of the pragmatic engineering choice to prioritize absolute reliability for a life-saving device MVP.
+If you prefer to experiment with the ML model instead of the deterministic rule, you can find all the training scripts and testing code in the dedicated `ml-engine` branch of our repository.
 
 ---
 
