@@ -2,11 +2,25 @@
 
 > **Junction 2026 · Meta AI Glasses Track · CRACI Side Track**
 
-Smart glasses that detect when the wearer has fallen, check in with them out loud, and — if they need help — understand *what happened* from first-person video using multimodal AI, then alert the right people with a clear summary.
+Every year, millions of elderly individuals suffer severe, life-threatening falls. The tech industry's answer so far has been a smartwatch or a plastic panic button on a lanyard around the neck. Both are failing.
 
-Existing fall detectors know *that* you fell. Safy knows *what happened* — tripped on stairs, pushed by someone, or collapsed — because it sees and hears from the wearer's own point of view.
+**The stigma problem.** People forget or refuse to wear medical lanyards. They sit in a drawer.
 
-**The Junction 2026 theme is "Moving the Centre of Gravity."** Ours does it literally: the glasses detect a sudden shift in the wearer's centre of gravity, and everything that follows is designed to move the centre of gravity of emergency response — from reactive to informed, from generic to personal, from opaque to transparent.
+**The physics problem.** The wrist is not your body's centre of gravity. Drop your phone off the couch and an Apple Watch might call an ambulance. But if you hit your head and your arm absorbs the impact, it registers nothing. The current market is plagued by false positives that waste emergency resources and false negatives that cost lives.
+
+**The context problem.** Every existing detector — Apple Watch, Abeye smart glasses, wearable pendants — can only tell you *that* something happened. Not *what*. A family member gets a notification that says "a fall was detected" and has no idea whether their parent tripped on a rug or collapsed from a stroke.
+
+The head is where we balance. The head is where we see. **Safy** moves safety from the wrist to the eyes.
+
+We are **DaVinci's Coding**, and this is our project for **Junction 2026**.
+
+### Moving the Centre of Gravity
+
+The Junction 2026 theme is *"Moving the Centre of Gravity."* Ours does it in three ways:
+
+1. **Literally.** The glasses detect a sudden shift in the wearer's centre of gravity — the biomechanical event that defines a fall.
+2. **Physically.** We move the sensor from the wrist to the head, where balance is controlled and where a camera can actually see what happened.
+3. **Systemically.** We move the centre of gravity of emergency response — from reactive to informed, from a generic alarm to a first-person AI summary, from opaque software to a transparent supply chain anyone can verify.
 
 ---
 
@@ -32,11 +46,12 @@ Existing fall detectors know *that* you fell. Safy knows *what happened* — tri
 | **1. Detection** | Accelerometer + gyroscope on the glasses flag a likely fall. A local deterministic detector on the iPhone filters false positives before anything leaves the phone. | iPhone app |
 | **2. Verbal check-in** | The glasses ask *"Are you okay?"* out loud (ElevenLabs TTS) and show it on the right-lens display. The wearer can respond by voice or tap. A clear "I'm fine" cancels the event. | Glasses + server |
 | **3. Situation understanding** | A one-second JPEG burst (up to 7 frames) is sent to Claude, which classifies the incident (accidental fall, assault, collapse) with a confidence score. Faces are blurred before transmission. | Modal server |
-| **4. Alert** | The companion web app shows the family member what happened: AI summary, key frames, severity and location. Email alerts are sent automatically if configured. | Safy web app |
+| **4. Alert** | The companion web app shows the family member what happened: AI summary, key frames, severity and GPS location from the Meta Ray-Bans. Location is shared only during an active emergency, never in the background. Email alerts are sent automatically if configured. | Safy web app |
 
 ### Privacy by design
 
 - Recording starts only *after* escalation, never continuously.
+- GPS location is transmitted only during an active emergency — never tracked in the background.
 - Bystander faces are blurred with OpenCV before any frame reaches Claude.
 - No data leaves the phone until the wearer fails to cancel.
 - The companion app runs entirely in the browser — no account, no server-side storage.
@@ -182,7 +197,7 @@ The companion app on the [`mobile-app`](../../tree/mobile-app) branch is a stati
 
 ## Team
 
-Built at **Junction 2026** in Espoo, Finland — 48 hours, four people, one mission: move the centre of gravity from *detecting* falls to *understanding* them.
+**DaVinci's Coding** — built at **Junction 2026** in Espoo, Finland. 48 hours, four people, one mission: move the centre of gravity from *detecting* falls to *understanding* them.
 
 | Name | Focus |
 |------|-------|
