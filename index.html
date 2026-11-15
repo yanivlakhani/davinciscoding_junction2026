@@ -422,6 +422,54 @@
     line-height: 1;
     padding-top: 2px;
   }
+  #screen-contacts .strip { padding: 18px 24px 0; align-items: center; }
+  #screen-contacts .h-title {
+    margin: 24px 0 0;
+    padding: 0 24px;
+    font-size: 29px;
+    line-height: 1.15;
+  }
+  #screen-contacts .section { margin: 26px 24px 0; }
+  #screen-contacts .section-head {
+    border: 0;
+    padding: 0;
+    margin-bottom: 12px;
+  }
+  #screen-contacts .section-head h2 {
+    color: var(--grey);
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+  #screen-contacts .contact {
+    align-items: center;
+    padding: 20px;
+    border: 1px solid rgba(15,118,110,0.12);
+    border-radius: 20px;
+    background: rgba(255,255,255,0.72);
+    box-shadow: 0 8px 24px rgba(15,118,110,0.06);
+  }
+  #screen-contacts .contact-main { gap: 7px; }
+  #screen-contacts .contact-name { font-size: 20px; line-height: 1.25; overflow-wrap: anywhere; }
+  #screen-contacts .contact-rel { font-size: 10px; letter-spacing: 1px; }
+  #screen-contacts .contact-info { margin-top: 6px; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+  #screen-contacts .contact-chev {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 50%;
+    background: rgba(20,184,166,0.08);
+    color: var(--green);
+  }
+  #screen-contacts .form-note {
+    margin: 20px 24px 24px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(15,118,110,0.05);
+    font-size: 12px;
+    line-height: 1.55;
+  }
 
   .primary-tag {
     display: inline-block;
@@ -1462,7 +1510,7 @@
   }
   .safety-orb.is-off::before, .safety-orb.is-off::after { border-color: rgba(88,113,109,0.22); }
   .orb-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .orb-icon { width: 72px; height: 72px; filter: drop-shadow(0 2px 4px rgba(18,59,56,0.12)); }
+  .orb-icon { width: 72px; height: 72px; border-radius: 50%; filter: drop-shadow(0 2px 4px rgba(18,59,56,0.12)); }
   .orb-action { font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; }
   .orb-caption {
     margin: 28px 20px 0;
@@ -1562,7 +1610,7 @@
   <!-- SCREEN: Sign in / create account                                   -->
   <div class="screen auth-screen" id="screen-auth">
     <div class="auth-brand">
-      <img class="auth-logo" src="logo/upright-logo.svg" alt="Upright logo" />
+      <img class="auth-logo" src="logo/safy-icon.svg" alt="Safy logo" />
       <span class="auth-wordmark">Upright</span>
     </div>
     <h1 class="auth-title" id="auth-title">Welcome back</h1>
@@ -1701,8 +1749,10 @@
       <button type="button" class="safety-orb" id="fall-btn" aria-label="Deactivate fall protection" aria-pressed="true" onclick="ask('fall')">
         <span class="orb-content">
           <svg class="orb-icon" viewBox="0 0 1024 1024" fill="none" aria-hidden="true">
-            <path d="M330 760 C520 760 670 680 670 500 L670 450" stroke="#FFFFFF" stroke-width="96" stroke-linecap="round"/>
-            <circle cx="670" cy="280" r="72" fill="#A7F3E9"/>
+            <g transform="translate(-22 0)">
+              <path d="M300 700 C360 765 450 790 535 780 C655 766 735 700 735 610 C735 515 650 482 525 455 C410 430 320 395 320 310 C320 238 385 196 470 196 C520 196 560 206 590 222" stroke="#FFFFFF" stroke-width="112" stroke-linecap="round"/>
+              <circle cx="730" cy="250" r="74" fill="#FFFFFF"/>
+            </g>
           </svg>
           <span class="orb-action" id="orb-action">Tap to pause</span>
         </span>
@@ -1744,14 +1794,14 @@
     </div>
     <h1 class="h-title">Who gets alerted</h1>
 
-    <div class="section" style="margin-top: 4px;">
+    <div class="section">
       <div class="section-head">
         <h2 id="contacts-count">1 contact</h2>
       </div>
       <div id="contacts-list"></div>
     </div>
 
-    <p class="form-note" style="margin-top:22px;">
+    <p class="form-note">
       Contact details are saved in this browser. Fall alerts, location sharing and
       emergency messages are demo-only and are not actually sent.
     </p>
