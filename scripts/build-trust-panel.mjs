@@ -49,21 +49,23 @@ for (const f of flags) {
 // someone looks at the dashboard for that run and updates this.
 // ---------------------------------------------------------------------------
 const DASHBOARD = {
-  readForRunStartedAt: "2026-11-14T21:02:06Z",
+  // Run #4 (GitHub run 43658777059), read off the dashboard on 2026-11-15.
+  readForRunStartedAt: "2026-11-15T00:33:39Z",
   knownVulnerabilities: 0,
 };
 
-// The rest of that run's dashboard totals. Used only while CRACI's record
-// has not been downloaded; once it has, the same figures are worked out
-// from the record instead (see runFromRecord below). "verified" is the UTC
-// time the run started, which the UI shows as "last checked".
+// Used only when CRACI's record has not been downloaded: the full set of
+// dashboard totals as read by hand for run #1 on 2026-11-14. Once the
+// record is there, the same figures are worked out from it instead (see
+// runFromRecord below). "verified" is the UTC time the run started, which
+// the UI shows as "last checked".
 const DASHBOARD_RUN = {
-  verified: DASHBOARD.readForRunStartedAt,
+  verified: "2026-11-14T21:02:06Z",
   durationSeconds: 42,
   jobsTotal: 5,
   jobsSucceeded: 5,
   packagesChecked: 181,
-  knownVulnerabilities: DASHBOARD.knownVulnerabilities,
+  knownVulnerabilities: 0,
   runner: "CRACI (Helsinki)",
 };
 

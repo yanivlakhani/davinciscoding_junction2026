@@ -32,7 +32,7 @@ window.TRUST_DATA = {
     "vulnerabilities": {
       "known": 0,
       "source": "CRACI dashboard, read by hand; CRACI's API does not expose this figure",
-      "readForRunStartedAt": "2026-11-14T21:02:06Z"
+      "readForRunStartedAt": "2026-11-15T00:33:39Z"
     },
     "verified": 14,
     "of": 14
@@ -270,5 +270,5 @@ window.TRUST_DATA = {
     ],
     "developerToolsCount": 98
   },
-  "generatedAt": "2026-11-15T00:51:19.628Z"
+  "generatedAt": "2026-11-15T01:02:24.347Z"
 };
