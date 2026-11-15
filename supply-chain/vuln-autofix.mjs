@@ -29,7 +29,17 @@ const anthropicKey = process.env.ANTHROPIC_API_KEY;
 
 function die(msg) { console.error(`vuln-autofix: ${msg}`); process.exit(1); }
 
-if (!craciToken) die("CRACI_API_TOKEN is not set.");
+if (!craciToken) {
+  console.warn("vuln-autofix: CRACI_API_TOKEN is not set.");
+  console.warn("  Add it as a repository secret to enable SBOM-based scanning.");
+  console.warn("  The auto-fixer needs this token to pull SBOMs from the CRACI API.");
+  console.warn("  Without it, the job cannot scan for vulnerabilities.");
+  console.warn("");
+  console.warn("  To set it: GitHub repo → Settings → Secrets → Actions → New secret");
+  console.warn("  Name: CRACI_API_TOKEN");
+  console.warn("  Value: your token from CRACI Settings → API tokens");
+  process.exit(0);
+}
 
 // ---- helpers ---------------------------------------------------------------
 
@@ -201,9 +211,9 @@ for (const { job, violations } of networkFindings) {
 
 if (!anthropicKey) {
   console.log("\nANTHROPIC_API_KEY not set — skipping AI fix generation.");
-  console.log("Set it to enable automatic fix PRs.");
+  console.log("Set it as a repository secret to enable automatic AI-generated fixes.");
   writeSummary(null);
-  process.exit(1);
+  process.exit(0);
 }
 
 console.log("\nGenerating AI fix with Claude...\n");
@@ -213,7 +223,7 @@ const fixableVulns = vulnerabilities.filter(v => v.vulns.some(vv => vv.fixed));
 if (fixableVulns.length === 0) {
   console.log("No vulnerabilities have a known fix version. AI fix skipped.");
   writeSummary(null);
-  process.exit(1);
+  process.exit(0);
 }
 
 const prompt = buildFixPrompt(fixableVulns, networkFindings);
