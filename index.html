@@ -47,9 +47,9 @@
   /* -------------------------------------------------------------------- */
   .frame {
     position: relative;
-    width: 390px;
-    height: 844px;
-    margin: 28px auto;
+    width: 360px;
+    height: 760px;
+    margin: 20px auto;
     background: linear-gradient(155deg, #F5FCFA 0%, #E8F7F4 48%, #E0F2EF 100%);
     border: 11px solid #0a0a0a;
     border-radius: 54px;
@@ -1703,21 +1703,6 @@
             <option>I don’t have them yet</option>
           </select>
         </label>
-        <label class="field">
-          <span class="field-label">Emergency contact</span>
-          <input class="field-input" type="text" name="contactName" required />
-        </label>
-        <label class="field">
-          <span class="field-label">Relationship</span>
-          <select class="field-select" name="contactRelation" required>
-            <option>Partner</option><option>Parent</option><option>Sibling</option>
-            <option>Friend</option><option>Caregiver</option><option>Other</option>
-          </select>
-        </label>
-        <label class="field">
-          <span class="field-label">Emergency contact phone</span>
-          <input class="field-input" type="tel" name="contactPhone" autocomplete="tel" required />
-        </label>
       </div>
       <p class="auth-error" id="profile-error" role="alert"></p>
       <div class="form-actions"><button class="btn ink" type="submit">Save profile</button></div>
@@ -1815,46 +1800,43 @@
       <button class="back" onclick="go('contacts')">Contacts</button>
       <span class="page">03</span>
     </div>
-    <h1 class="h-title">Elena Lakhani</h1>
+    <h1 class="h-title">Emergency contact</h1>
 
+    <form class="profile-form" id="contact-form" onsubmit="saveProfile(event, 'contact')">
     <div class="form">
       <label class="field">
         <span class="field-label">Full name</span>
-        <input class="field-input" type="text" value="Elena Lakhani" />
+        <input class="field-input" type="text" name="contactName" autocomplete="off" required />
       </label>
       <label class="field">
         <span class="field-label">Relationship</span>
-        <select class="field-select">
-          <option>Mother</option>
-          <option>Father</option>
+        <select class="field-select" name="contactRelation" required>
           <option>Partner</option>
+          <option>Parent</option>
           <option>Sibling</option>
           <option>Friend</option>
-          <option>Doctor</option>
+          <option>Caregiver</option>
           <option>Other</option>
         </select>
       </label>
       <label class="field">
         <span class="field-label">Phone</span>
-        <input class="field-input" type="tel" value="+39 342 149 6978" />
-      </label>
-      <label class="field">
-        <span class="field-label">Email</span>
-        <input class="field-input" type="email" value="elena.lakhani@proton.me" />
+        <input class="field-input" type="tel" name="contactPhone" autocomplete="off" required />
       </label>
     </div>
 
+    <p class="auth-error" id="contact-error" role="alert"></p>
     <div class="form-actions">
-      <button class="btn" onclick="go('contacts')">Cancel</button>
-      <button class="btn ink" onclick="go('contacts')">Save</button>
+      <button class="btn" type="button" onclick="go('contacts')">Cancel</button>
+      <button class="btn ink" type="submit">Save contact</button>
     </div>
+    </form>
 
     <p class="form-note">
-      If you fall and don&rsquo;t say you&rsquo;re okay, Elena gets an alert with a photo
-      from your glasses (faces blurred) and a map link if location sharing is on.
+      These changes update only your emergency contact, not your personal profile.
+      Details stay in this browser; this demo does not send real alerts.
     </p>
 
-    <button type="button" class="text-btn" onclick="go('contacts')">Remove contact</button>
   </div>
 
   <!-- ------------------------------------------------------------------ -->
@@ -2102,6 +2084,10 @@
     rawsbom: "trust",
   };
   function go(name, updateUrl = true) {
+    if (name === "edit" && profile) {
+      fillProfileForm("contact-form", profile);
+      $("contact-error").textContent = "";
+    }
     screens.forEach(s => {
       document.getElementById("screen-" + s).classList.toggle("on", s === name);
     });
@@ -2290,7 +2276,7 @@
       </button>`;
     $("home-contact-list").innerHTML = contact;
     $("contacts-list").innerHTML = `
-      <button class="contact" type="button" onclick="go('profile')">
+      <button class="contact" type="button" onclick="go('edit')">
         <span class="contact-main">
           <span class="contact-name">${escape(profile.contactName)}</span>
           <span class="contact-rel">${escape(profile.contactRelation)}</span>
@@ -2305,22 +2291,34 @@
   function saveProfile(event, destination) {
     event.preventDefault();
     const form = event.currentTarget;
-    const error = $(destination === "setup" ? "setup-error" : "profile-error");
+    const error = $(destination === "setup" ? "setup-error" : destination === "contact" ? "contact-error" : "profile-error");
     error.textContent = "";
     if (!currentEmail) {
       error.textContent = "Your session has expired. Please log in again.";
       go("auth");
       return;
     }
-    const values = Object.fromEntries(new FormData(form).entries());
-    const savedProfile = Object.fromEntries(
-      Object.entries(values).map(([key, value]) => [key, String(value).trim()])
-    );
+    const data = new FormData(form);
+    const fields = destination === "contact"
+      ? ["contactName", "contactRelation", "contactPhone"]
+      : destination === "profile"
+        ? ["userName", "glassesModel"]
+        : ["userName", "glassesModel", "contactName", "contactRelation", "contactPhone"];
+    const savedProfile = { ...profile };
+    for (const key of fields) {
+      const value = String(data.get(key) || "").trim();
+      if (!value) {
+        error.textContent = "Please complete all fields before saving.";
+        return;
+      }
+      savedProfile[key] = value;
+    }
     try {
       localStorage.setItem(PROFILE_KEY + currentEmail, JSON.stringify(savedProfile));
       profile = savedProfile;
       updateProfileViews();
-      go("home");
+      go(destination === "contact" ? "contacts" : "home");
+      if (destination === "contact") showToast(true, "Emergency contact saved.");
       if (destination === "profile") showToast(true, "Your profile has been saved.");
     } catch (storageError) {
       error.textContent = storageError instanceof Error
