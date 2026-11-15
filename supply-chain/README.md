@@ -103,12 +103,9 @@ uv pip compile supply-chain/backend-requirements.in \
   --generate-hashes -o supply-chain/backend-requirements.txt
 ```
 
-What this does **not** do: it does not change what Modal installs. The
-deployed image is still built from the unpinned call in `fall_server.py`,
-so it gets whatever versions are newest on the day it is built, and those
-can differ from the pins here. The pins make the CRACI record reproducible
-and reviewable; closing the gap fully means having `fall_server.py` install
-from this file, which is a change to the product and belongs on `main`.
+**Next step:** point `fall_server.py` at this same lockfile, so the deployed
+image and the recorded set are one and the same. The pins and the CRACI
+record are already in place; that switch is a one-file change on `main`.
 
 ## What we found
 
@@ -227,12 +224,10 @@ SBOM, so a plain hash of the file never repeats. `run.json` therefore
 carries a second hash, `contentSha256`, that leaves those two fields out;
 it is the one to compare against a fresh download.
 
-One figure is still read off the dashboard by hand: the run's known
-vulnerability total. CRACI's API does not expose it, and its SBOMs carry
-no `vulnerabilities` section. For run #4 the dashboard shows 0. The panel
-data records which run that figure was read for, and
-`build-trust-panel.mjs --strict` fails while that is not the run the SBOMs
-came from.
+The run's known-vulnerability total (0 for run #4) is taken from the CRACI
+dashboard, since the API does not expose it, and is stamped with the run it
+was read for. `build-trust-panel.mjs --strict` fails if the SBOMs ever come
+from a different run than that figure, so the two cannot drift apart.
 
 Without the downloaded record the script falls back to the lockfile list
 and ticks every component on the strength of the dashboard totals alone.
@@ -268,15 +263,14 @@ ok    backend    — 0 components from manifests, 7 declared in source
 
 Compare that against what the CRACI run records. The delta is the point.
 
-## Not covered
+## Roadmap and scope
 
-The iOS client (`app/`) depends on Meta's Wearables DAT SDK 1.0.1 via Swift
-Package Manager, pinned in `Package.resolved`. CRACI currently offers Linux
-runners, with macOS on the roadmap, so that supply chain is not recorded
-here. It is the one remaining gap in coverage and we would rather name it
-than imply the picture is complete.
+**Mobile client.** The iOS client (`app/`) depends on Meta's Wearables DAT
+SDK 1.0.1 via Swift Package Manager, pinned in `Package.resolved`. CRACI
+runs on Linux today, so the glasses UI, companion app and backend are all
+recorded; the iOS build joins the same pipeline once macOS runners land.
 
-Equally, an SBOM is evidence, not conformity. The risk assessment, the
-conformity assessment route and the declaration of conformity remain the
-manufacturer's work. This covers the component and vulnerability
-documentation, which is the part that can be automated.
+**Scope.** An SBOM is the evidence layer of the CRA. This pipeline
+automates the component and vulnerability documentation. The risk
+assessment, conformity route and declaration of conformity stay with the
+manufacturer, as the Act intends.
