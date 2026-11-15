@@ -43,11 +43,21 @@ being designed now is being designed into the regime, not before it.
 
 ## The three supply chains
 
-| Component | Branch | Ecosystem | Declared where | Lockfile SBOM |
-| --- | --- | --- | --- | --- |
-| Backend | `main` | PyPI | Arguments to `uv_pip_install()` **in the Python source** | 0 components |
-| Glasses UI | `glasses-ui` | npm | `package-lock.json` | 79 components |
-| Companion app | `mobile-app` | npm | `package-lock.json` | 26 components |
+| Component | Branch | Ecosystem | Declared where | Lockfile SBOM | CRACI recorded being fetched |
+| --- | --- | --- | --- | --- | --- |
+| Backend | `main` | PyPI | Arguments to `uv_pip_install()` **in the Python source** | 0 components | 65 packages |
+| Glasses UI | `glasses-ui` | npm | `package-lock.json` | 79 components | 28 packages |
+| Companion app | `mobile-app` | npm | `package-lock.json` | 26 components | 26 packages |
+
+The last column is from the SBOMs CRACI recorded for run #4 of the
+workflow, downloaded from its API into `mobile-app/supply-chain/craci/`.
+A manifest-based SBOM is wrong in both directions here. It finds nothing
+for the backend, where CRACI recorded 65 packages, exactly the 65 in the
+pinned list below. And it lists 79 for the glasses UI, where only 28 were
+downloaded: the other 51 are builds of the bundler, the TypeScript
+compiler and the CSS tool for other operating systems and processors, and
+their helpers, which `npm ci` never fetches on a Linux x64 runner. For the
+companion app the two agree, package for package.
 
 The backend row is the interesting one. Modal builds its container image
 from a call inside the application file:
@@ -136,10 +146,28 @@ puppeteer where its browser should be and checking whether the file
 exists: the strict job passes only if the browser is absent, the reviewed
 job only if it is present. Both jobs are expected to pass.
 
-CRACI records blocked connections in the job's trace, under **Proxy
-violations**, with the reason no rule matched
-([Debug network problems in jobs](https://docs.craci.com/guides/network-troubleshooting/)).
-That record, not the build's exit status, is where a blocked fetch shows up.
+The record of what happened is CRACI's network trace of each job, not the
+build's exit status. For run #4 the three jobs that install the companion
+app show this for `storage.googleapis.com`:
+
+| Job | Policy | What CRACI's trace recorded |
+| --- | --- | --- |
+| Companion app | Everything allowed | Two `GET`s, both `200`: `chrome-linux64.zip`, 203,527,334 bytes, and `chrome-headless-shell-linux64.zip`, 128,166,087 bytes, each with its SHA-256 |
+| Strict policy | npm and GitHub only | The same two `GET`s, both denied with `403`: *"request does not match an allowed proxy policy rule"* |
+| Reviewed policy | npm, GitHub and the named host | Two connections allowed by the rule `passthrough-tls-storage.googleapis.com`, carrying 203.8 MB and 128.4 MB |
+
+Those observations are copied unchanged into
+[`chrome-download-trace.json`](chrome-download-trace.json), with the job
+IDs they came from. Two things in them are worth knowing:
+
+- The browsers are not in CRACI's SBOM either. The companion app job's
+  SBOM lists the same 26 npm packages as the lockfile. The 330 MB shows up
+  in the network trace, with a URL and a hash, and nowhere else.
+- Allowing a host with a `tls` connection rule is a pass-through. CRACI
+  then sees how many bytes moved but not which files, so the reviewed job
+  records less about the download than the job with no policy at all.
+  CRACI's documentation says as much about exempted destinations
+  ([Debug network problems in jobs](https://docs.craci.com/guides/network-troubleshooting/)).
 
 The second job is what a reviewed dependency should look like: a named host
 in version control with a reason attached, rather than a fetch nobody saw.
@@ -165,12 +193,12 @@ The panel draws on two different things, and it matters which is which:
 - **Which components are listed** comes from the lockfiles and from the
   server's declarations (`backend-declared.txt` on `mobile-app`, held to
   `fall_server.py` by the same check as above).
-- **Which of them are ticked** is meant to come from CRACI's own record of
-  the build. CRACI keeps one CycloneDX SBOM per job and serves it from its
-  API. `mobile-app/scripts/fetch-craci-sboms.mjs` downloads the three
-  product jobs' SBOMs into `mobile-app/supply-chain/craci/`, with the run
-  ID, commit and a SHA-256 of each file as served. Once they are there, a
-  component is ticked only if CRACI recorded it, at the locked version.
+- **Which of them are ticked** comes from CRACI's own record of the build.
+  CRACI keeps one CycloneDX SBOM per job and serves it from its API.
+  `mobile-app/scripts/fetch-craci-sboms.mjs` downloads the SBOM of every
+  CRACI job in a run into `mobile-app/supply-chain/craci/`, with the run
+  ID, commit, job IDs and hashes in `run.json`. A component is ticked only
+  if CRACI recorded it, at the locked version.
 
 ```
 supply-chain.yml on CRACI runners
@@ -185,13 +213,31 @@ mobile-app/scripts/build-trust-panel.mjs      (--strict: every tick backed)
 mobile-app/data/trust-panel.js  ->  Trust panel in the companion app
 ```
 
-Until that download has been done, the script falls back to the lockfile
-list and ticks every component on the strength of the run totals from the
-CRACI dashboard (all jobs succeeded, no known vulnerabilities). The output
-records which basis was used in its `evidence` field, and
-`build-trust-panel.mjs --strict` fails on anything less than CRACI's
-record. The vulnerability total itself is read off the dashboard by hand,
-because the API does not expose it.
+The record committed on `mobile-app` is from run #4. All 14 components the
+panel lists are in it at the locked versions, so all 14 are ticked, and
+the seven server packages are shown at the exact version CRACI saw
+installed. The panel's other figures are worked out from the same files:
+when the run started, how many CRACI jobs succeeded (5 of 5), and
+"packages checked", which is the number of components summed over the five
+jobs (183). That sum is how CRACI's dashboard counts: for run #1 the
+dashboard showed 181, and that run's five SBOMs hold 30 + 28 + 67 + 28 + 28.
+
+CRACI stamps a new serial number and timestamp on every download of an
+SBOM, so a plain hash of the file never repeats. `run.json` therefore
+carries a second hash, `contentSha256`, that leaves those two fields out;
+it is the one to compare against a fresh download.
+
+One figure is still read off the dashboard by hand: the run's known
+vulnerability total. CRACI's API does not expose it, and its SBOMs carry
+no `vulnerabilities` section. For run #4 the dashboard shows 0. The panel
+data records which run that figure was read for, and
+`build-trust-panel.mjs --strict` fails while that is not the run the SBOMs
+came from.
+
+Without the downloaded record the script falls back to the lockfile list
+and ticks every component on the strength of the dashboard totals alone.
+The output says which basis was used in its `evidence` field, and
+`--strict` refuses the fallback.
 
 The workflow's `trust-panel` job keeps the app honest between downloads: it
 fails if the app's backend list differs from what the server declares, or

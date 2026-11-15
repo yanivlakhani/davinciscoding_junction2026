@@ -1,0 +1,225 @@
+{
+  "what": "Every access to storage.googleapis.com that CRACI observed in the three jobs of supply-chain run #4 that run `npm ci` for the companion app. Copied without changes from each job's network trace; all other observations (npm registry, GitHub) are left out.",
+  "source": "GET https://api.craci.com/v1preview1/network-trace?provider=github&repo=yanivlakhani/davinciscoding_junction2026&job_id=<jobId>",
+  "retrievedAt": "2026-11-15T00:45:15Z",
+  "jobs": [
+    {
+      "job": {
+        "provider": "github",
+        "repository": "yanivlakhani/davinciscoding_junction2026",
+        "runId": "43658777059",
+        "jobId": "132643178838",
+        "runAttempt": 1,
+        "commitSha": "e61b995b5ac297cf57120331eaa125a0e08a25d2",
+        "branch": "craci",
+        "workflow": "Supply chain evidence",
+        "jobName": "Companion app (npm)",
+        "status": "SUCCESS"
+      },
+      "networkPolicy": "no network block: every preset on, unmatched traffic allowed",
+      "observationsInTrace": 77,
+      "storageGoogleapisCom": [
+        {
+          "sequence": 56,
+          "observedAt": "2026-11-15T00:33:53.054810524Z",
+          "protocol": "dns",
+          "dns": {
+            "nameserverIp": "8.8.8.8:53",
+            "record": "storage.googleapis.com.",
+            "response": "108.177.14.207,173.194.221.207,64.233.161.207,64.233.164.207,173.194.73.207,64.233.162.207,74.125.205.207,172.253.130.207,173.194.222.207,64.233.163.207"
+          }
+        },
+        {
+          "sequence": 57,
+          "observedAt": "2026-11-15T00:33:53.054838304Z",
+          "protocol": "dns",
+          "dns": {
+            "nameserverIp": "8.8.8.8:53",
+            "record": "storage.googleapis.com.",
+            "response": "108.177.14.207,173.194.221.207,64.233.161.207,64.233.164.207,173.194.73.207,64.233.162.207,74.125.205.207,172.253.130.207,173.194.222.207,64.233.163.207"
+          }
+        },
+        {
+          "sequence": 60,
+          "observedAt": "2026-11-15T00:33:53.058818018Z",
+          "protocol": "http",
+          "http": {
+            "method": "GET",
+            "originUrl": "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.50/linux64/chrome-headless-shell-linux64.zip",
+            "ipAddress": "108.177.14.207",
+            "statusCode": 200,
+            "bodySizeBytes": "128166087",
+            "bodyHash": {
+              "sha256": "7bf0d41e424efd1d6281c4162993ab9dc5de92fac213c211614905a71c057d0f"
+            },
+            "policyDenied": false
+          }
+        },
+        {
+          "sequence": 61,
+          "observedAt": "2026-11-15T00:33:53.058125399Z",
+          "protocol": "http",
+          "http": {
+            "method": "GET",
+            "originUrl": "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.50/linux64/chrome-linux64.zip",
+            "ipAddress": "108.177.14.207",
+            "statusCode": 200,
+            "bodySizeBytes": "203527334",
+            "bodyHash": {
+              "sha256": "d17167bc092eb495a3b768c7467f27e35f625aa03834233a1663af67dcb668c9"
+            },
+            "policyDenied": false
+          }
+        }
+      ]
+    },
+    {
+      "job": {
+        "provider": "github",
+        "repository": "yanivlakhani/davinciscoding_junction2026",
+        "runId": "43658777059",
+        "jobId": "132643179060",
+        "runAttempt": 1,
+        "commitSha": "e61b995b5ac297cf57120331eaa125a0e08a25d2",
+        "branch": "craci",
+        "workflow": "Supply chain evidence",
+        "jobName": "Strict policy (expected to block Chrome download)",
+        "status": "SUCCESS"
+      },
+      "networkPolicy": "default: deny, presets: [npm, github]",
+      "observationsInTrace": 82,
+      "storageGoogleapisCom": [
+        {
+          "sequence": 55,
+          "observedAt": "2026-11-15T00:33:59.748315564Z",
+          "protocol": "dns",
+          "dns": {
+            "nameserverIp": "8.8.8.8:53",
+            "record": "storage.googleapis.com.",
+            "response": "64.233.163.207,64.233.162.207,64.233.164.207,74.125.131.207,172.253.152.207,173.194.221.207,74.125.205.207,108.177.14.207,64.233.161.207,173.194.222.207"
+          }
+        },
+        {
+          "sequence": 56,
+          "observedAt": "2026-11-15T00:33:59.748359154Z",
+          "protocol": "dns",
+          "dns": {
+            "nameserverIp": "8.8.8.8:53",
+            "record": "storage.googleapis.com.",
+            "response": "64.233.163.207,64.233.162.207,64.233.164.207,74.125.131.207,172.253.152.207,173.194.221.207,74.125.205.207,108.177.14.207,64.233.161.207,173.194.222.207"
+          }
+        },
+        {
+          "sequence": 57,
+          "observedAt": "2026-11-15T00:33:59.752326499Z",
+          "protocol": "http",
+          "http": {
+            "method": "GET",
+            "originUrl": "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.50/linux64/chrome-linux64.zip",
+            "ipAddress": "64.233.163.207",
+            "statusCode": 403,
+            "bodySizeBytes": "9",
+            "bodyHash": {
+              "sha256": "78342a0905a72ce44da083dcb5d23b8ea0c16992ba2a82eece97e033d76ba3d3"
+            },
+            "policyDenied": true,
+            "denyReason": "request does not match an allowed proxy policy rule"
+          }
+        },
+        {
+          "sequence": 58,
+          "observedAt": "2026-11-15T00:33:59.752946198Z",
+          "protocol": "http",
+          "http": {
+            "method": "GET",
+            "originUrl": "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.50/linux64/chrome-headless-shell-linux64.zip",
+            "ipAddress": "64.233.163.207",
+            "statusCode": 403,
+            "bodySizeBytes": "9",
+            "bodyHash": {
+              "sha256": "78342a0905a72ce44da083dcb5d23b8ea0c16992ba2a82eece97e033d76ba3d3"
+            },
+            "policyDenied": true,
+            "denyReason": "request does not match an allowed proxy policy rule"
+          }
+        }
+      ]
+    },
+    {
+      "job": {
+        "provider": "github",
+        "repository": "yanivlakhani/davinciscoding_junction2026",
+        "runId": "43658777059",
+        "jobId": "132643178650",
+        "runAttempt": 1,
+        "commitSha": "e61b995b5ac297cf57120331eaa125a0e08a25d2",
+        "branch": "craci",
+        "workflow": "Supply chain evidence",
+        "jobName": "Reviewed policy (Chrome download named explicitly)",
+        "status": "SUCCESS"
+      },
+      "networkPolicy": "default: deny, presets: [npm, github], plus a tls connection rule for storage.googleapis.com:443",
+      "observationsInTrace": 82,
+      "storageGoogleapisCom": [
+        {
+          "sequence": 55,
+          "observedAt": "2026-11-15T00:33:46.919752191Z",
+          "protocol": "dns",
+          "dns": {
+            "nameserverIp": "8.8.8.8:53",
+            "record": "storage.googleapis.com.",
+            "response": "34.144.171.27,34.153.2.27,34.144.170.27,104.154.124.27,34.3.0.27,34.3.1.27,104.154.125.27,34.153.3.27"
+          }
+        },
+        {
+          "sequence": 56,
+          "observedAt": "2026-11-15T00:33:46.919808421Z",
+          "protocol": "dns",
+          "dns": {
+            "nameserverIp": "8.8.8.8:53",
+            "record": "storage.googleapis.com.",
+            "response": "34.144.171.27,34.153.2.27,34.144.170.27,104.154.124.27,34.3.0.27,34.3.1.27,104.154.125.27,34.153.3.27"
+          }
+        },
+        {
+          "sequence": 60,
+          "observedAt": "2026-11-15T00:33:55.964912341Z",
+          "protocol": "tcp",
+          "tcp": {
+            "remoteIp": "34.144.171.27",
+            "resolvedHosts": [
+              "storage.googleapis.com"
+            ],
+            "port": 443,
+            "bytesToRemote": "1854",
+            "bytesFromRemote": "128365516",
+            "duration": "9.043367594s",
+            "allowed": true,
+            "matchedRule": "passthrough-tls-storage.googleapis.com",
+            "tlsServerName": "storage.googleapis.com",
+            "tlsAlpn": []
+          }
+        },
+        {
+          "sequence": 61,
+          "observedAt": "2026-11-15T00:33:57.224382653Z",
+          "protocol": "tcp",
+          "tcp": {
+            "remoteIp": "34.144.171.27",
+            "resolvedHosts": [
+              "storage.googleapis.com"
+            ],
+            "port": 443,
+            "bytesToRemote": "1839",
+            "bytesFromRemote": "203827301",
+            "duration": "10.303161647s",
+            "allowed": true,
+            "matchedRule": "passthrough-tls-storage.googleapis.com",
+            "tlsServerName": "storage.googleapis.com",
+            "tlsAlpn": []
+          }
+        }
+      ]
+    }
+  ]
+}
