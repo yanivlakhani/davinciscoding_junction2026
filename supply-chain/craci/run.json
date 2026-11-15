@@ -1,0 +1,74 @@
+{
+  "repository": "yanivlakhani/davinciscoding_junction2026",
+  "workflow": "supply-chain.yml",
+  "branch": "craci",
+  "runId": "43658777059",
+  "runNumber": 4,
+  "runUrl": "https://github.com/yanivlakhani/davinciscoding_junction2026/actions/runs/43658777059",
+  "commit": "e61b995b5ac297cf57120331eaa125a0e08a25d2",
+  "startedAt": "2026-11-15T00:33:39Z",
+  "completedAt": "2026-11-15T00:34:28Z",
+  "conclusion": "success",
+  "jobsTotal": 6,
+  "jobsSucceeded": 6,
+  "craciJobsTotal": 5,
+  "craciJobsSucceeded": 5,
+  "sboms": [
+    {
+      "key": "backend",
+      "job": "Backend (PyPI)",
+      "file": "backend.cdx.json",
+      "jobId": "132643178885",
+      "conclusion": "success",
+      "specVersion": "1.7",
+      "components": 69,
+      "sha256": "7bf38c94992fbc51f07559423d2ce52318f2481ef1e7180b38c8d632a75e57d5",
+      "contentSha256": "1f03d9af2787fc7598f36416a9628f0060cd7258667911b0a71878df8e82e0e5"
+    },
+    {
+      "key": "glasses-ui",
+      "job": "Glasses UI (npm)",
+      "file": "glasses-ui.cdx.json",
+      "jobId": "132643179013",
+      "conclusion": "success",
+      "specVersion": "1.7",
+      "components": 30,
+      "sha256": "66be559e7619e1f087d4152142da2ddd03b449949a35087e3e2115d0b6eff423",
+      "contentSha256": "5af7e5d45d46f844a2ba8b6f60aff9432ba83608740dcba7ff45d08d316ae2e0"
+    },
+    {
+      "key": "mobile-app",
+      "job": "Companion app (npm)",
+      "file": "mobile-app.cdx.json",
+      "jobId": "132643178838",
+      "conclusion": "success",
+      "specVersion": "1.7",
+      "components": 28,
+      "sha256": "4abd37b3fd62f2050af4528881ad61a21063de10fb01b0da650998b41277731a",
+      "contentSha256": "0373f1606b4909f14c3bfde4d9e8bbf7e79da81fcd29073a0ce52b0a70d9b0a5"
+    },
+    {
+      "key": "policy-strict",
+      "job": "Strict policy (expected to block Chrome download)",
+      "file": "policy-strict.cdx.json",
+      "jobId": "132643179060",
+      "conclusion": "success",
+      "specVersion": "1.7",
+      "components": 28,
+      "sha256": "4749a12f0bfd1c8efa839c9b32212c1f3a35e59d1a13d49d41b2cba06d28a1c7",
+      "contentSha256": "e5d265f3e886dd907fec83ec0a1acb09ca547fa29349e1951d62e57f7fadefbb"
+    },
+    {
+      "key": "policy-reviewed",
+      "job": "Reviewed policy (Chrome download named explicitly)",
+      "file": "policy-reviewed.cdx.json",
+      "jobId": "132643178650",
+      "conclusion": "success",
+      "specVersion": "1.7",
+      "components": 28,
+      "sha256": "792bf6f215c4a5781763f96b7d9e67bbedc5bf28673c20188eff90a46bb96798",
+      "contentSha256": "4005507180b667f73a946cdc5df6a72b0fd9c7c25c133d4c36ba82341ca5cdf1"
+    }
+  ],
+  "fetchedAt": "2026-11-15T00:51:08.312Z"
+}
