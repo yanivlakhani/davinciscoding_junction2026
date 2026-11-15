@@ -215,6 +215,39 @@ jobs:
           '
 
   # --------------------------------------------------------------------
+  # AI auto-fixer: scans every CRACI SBOM from this run against OSV,
+  # and if it finds a vulnerability with a known fix, asks Claude to
+  # generate a remediation plan. Opens a GitHub issue with the patch.
+  #
+  # This job:
+  #   - never touches the backend, the UI or any product code
+  #   - never pushes to main
+  #   - only reads CRACI SBOMs and writes a GitHub issue if needed
+  #   - needs the other CRACI jobs to finish first so their SBOMs exist
+  # --------------------------------------------------------------------
+
+  vuln-autofix:
+    name: AI vulnerability auto-fixer
+    runs-on: craci
+    needs: [backend, glasses-ui, mobile-app, undeclared-fetch-blocked, undeclared-fetch-reviewed]
+    if: always() && !cancelled()
+    timeout-minutes: 10
+    steps:
+      - uses: cracicorp/setup@v1
+        with:
+          size: "4"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Scan CRACI SBOMs and generate AI fix if needed
+        env:
+          CRACI_API_TOKEN: ${{ secrets.CRACI_API_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node supply-chain/vuln-autofix.mjs
+
+  # --------------------------------------------------------------------
   # The companion app's Trust panel shows this evidence to the person
   # wearing the glasses, so it is held to the same record:
   #
