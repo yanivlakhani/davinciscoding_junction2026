@@ -3,7 +3,7 @@
 > **Junction 2026 · Meta AI Glasses Track · CRACI · ElevenLabs · Modal · Codex Side Tracks**
 >
 
-> 🔍 **Note for Judges: Live Demo**
+> ⚠️🔍 **Note for Judges: Live Demo**
 > Because this is a native iOS app utilizing hardware-specific sensors (IMU) and edge computing (CoreML), a web link cannot replicate the architecture. Please watch the **Demo Video** provided to see the pipeline in action. 
 > **Want to test it yourself?** Come visit our table for a live, hands-on demonstration!
 
