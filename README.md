@@ -100,17 +100,19 @@ The CRA applies to products with digital elements on the EU market. Safy qualifi
 
 ### What we built
 
-All CI jobs run on [CRACI](https://craci.com) runners, which record a CycloneDX 1.7 SBOM from each build — not from a manifest file, but from what the runner actually downloads and installs.
+7 CI jobs run on [CRACI](https://craci.com) runners on every push. CRACI records a CycloneDX 1.7 SBOM from each build — not from a manifest file, but from what the runner actually downloads and installs.
 
-| CRACI job | What it records | Key finding |
-|-----------|----------------|-------------|
-| `backend` | All 65 Python packages installed for `fall_server.py` | Manifest scanners find 0 components (no `requirements.txt`). CRACI finds all 65 with exact hashes. |
-| `glasses-ui` | 28 npm packages downloaded on Linux x64 | The lockfile lists 79, but 51 are platform-specific and never actually installed. |
-| `mobile-app` | npm packages for the companion app | `puppeteer` downloads ~330 MB of Chrome binaries via a postinstall hook — invisible to any lockfile. |
-| `policy-strict` | Same companion app under `default: deny` | CRACI blocks the Chrome download with HTTP 403. Puppeteer catches the error and exits 0, but the binary is absent on disk. |
-| `policy-reviewed` | Same app with `storage.googleapis.com` allowed | The Chrome binary arrives as expected. |
+| CRACI job | What it does |
+|-----------|-------------|
+| `backend` | Installs all 65 pinned Python packages with hash verification. Manifest scanners find 0 components — CRACI finds all 65. |
+| `glasses-ui` | Builds the lens UI. Lockfile lists 79 packages; CRACI records 28 actually fetched (51 are other-platform binaries). |
+| `mobile-app` | Installs the companion app. Puppeteer's postinstall downloads ~330 MB of Chrome binaries — invisible to any lockfile. |
+| `policy-strict` | Same app under `default: deny`. CRACI blocks the Chrome download. Puppeteer exits 0 anyway — the binary is absent on disk. |
+| `policy-reviewed` | Same app with `storage.googleapis.com` explicitly allowed. Chrome arrives as expected. |
+| **`vuln-autofix`** | **AI auto-fixer.** Pulls every SBOM from the CRACI API, queries OSV for CVEs, checks network traces, and asks Claude to generate a fix. Opens a GitHub issue with the remediation plan. |
+| `trust-panel` | Verifies the companion app's Trust panel matches the CRACI evidence. |
 
-The backend's pinned dependency list (`supply-chain/backend-requirements.txt`) is checked by CI against what `fall_server.py` actually declares. If someone adds a library, the workflow fails until the pins are regenerated.
+The backend's pinned dependency list is checked by CI against what `fall_server.py` actually declares. If someone adds a library, the workflow fails until the pins are regenerated.
 
 ### The Trust panel — a nutrition label for a safety device
 
@@ -121,6 +123,12 @@ The companion app includes a user-facing **Trust panel** that translates raw Cyc
 - A live dashboard shows packages checked (183), CRACI jobs verified (5/5) and known safety issues (0).
 
 The CRA does not require publishing an SBOM to users. We did it anyway, because a safety device worn on someone's face should be able to explain itself to the person wearing it.
+
+### AI auto-fixer — software that defends itself
+
+After every build, the `vuln-autofix` job pulls every SBOM from the CRACI API, extracts every package purl, and batch-queries [OSV](https://osv.dev) for known vulnerabilities. If it finds one with a known fix, it sends the exact build data to Claude, which generates a remediation plan grounded in what CRACI actually saw installed — not a lockfile, not a guess. The fix is posted as a GitHub issue automatically.
+
+If an attacker exploits a new CVE within a day, the next push to `craci` catches it and generates a fix before anyone wakes up.
 
 ### Verification
 
