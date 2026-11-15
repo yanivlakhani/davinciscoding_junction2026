@@ -1,6 +1,8 @@
 # Safy — AI Safety Glasses
 
-> **Junction 2026 · Meta AI Glasses Track · CRACI Side Track**
+> **Junction 2026 · Meta AI Glasses Track · CRACI · ElevenLabs · Modal · Codex Side Tracks**
+>
+> *Want to see it live? Ask us for an in-person demo — we'd love to show you.*
 
 Every year, millions of elderly individuals suffer severe, life-threatening falls. The tech industry's answer so far has been a smartwatch or a plastic panic button on a lanyard around the neck. Both are failing.
 
@@ -139,6 +141,83 @@ If an attacker exploits a new CVE within a day, the next push to `craci` catches
 
 ---
 
+## ElevenLabs Side Track — The Voice That Checks In
+
+> **Junction 2026 ElevenLabs Side Track submission**
+
+When the glasses detect a fall, the first thing the wearer hears is a voice — not a beep, not a siren, but a calm spoken question: *"Are you okay? Tell me how you feel."*
+
+That voice is ElevenLabs. The backend calls the ElevenLabs TTS API (`eleven_flash_v2_5` model) to generate each spoken prompt, and the audio is streamed through the glasses' open-ear speakers.
+
+### Seven spoken states
+
+ElevenLabs generates a distinct prompt for each stage of the conversation, in English and Italian:
+
+| Stage | What the glasses say |
+|-------|---------------------|
+| **Check-in** | *"Are you okay? Tell me how you feel."* |
+| **Contact** | *"Would you like me to email your emergency contact?"* |
+| **Decline** | *"Are you sure you do not want me to email your emergency contact?"* |
+| **Call** | *"Would you like to call your emergency contact?"* |
+| **Email sent** | *"Your email alert has been submitted."* |
+| **Email failed** | *"I could not confirm that your email alert was sent."* |
+| **Call handoff** | *"Confirm the call on your iPhone."* |
+
+The voice is not decoration — it is the primary interface for someone who may be on the ground, disoriented, unable to look at a screen. The wearer's spoken response is transcribed, classified (fine / not fine / no response), and drives the next step. Two unanswered prompts trigger an automatic email alert.
+
+Audio is generated once per voice+model+language combination and cached in server RAM, so subsequent falls get instant playback with no API latency. Credentials stay on Modal and never reach the phone.
+
+---
+
+## Modal Side Track — Serverless Fall Analysis
+
+> **Junction 2026 Modal Side Track submission**
+
+The entire backend runs on [Modal](https://modal.com) as a single serverless application (`fall-detection-backend`). Modal is not just hosting — it is what makes a 48-hour hackathon backend production-capable.
+
+### What Modal provides
+
+- **`modal.Image`** builds a reproducible container with Python 3.12, OpenCV, FastAPI, Anthropic and all dependencies — one declaration, no Dockerfile.
+- **`modal.asgi_app`** serves the FastAPI application with `@modal.concurrent(max_inputs=20)`, handling multiple simultaneous fall events without managing servers.
+- **`modal.Dict`** provides two persistent distributed dictionaries:
+  - `fall-events`: stores event state across the entire escalation pipeline (detection → check-in → consent → alert)
+  - `fall-email-deliveries`: atomic email claim tracking that prevents duplicate SMTP sends after ambiguous acknowledgements
+- **`modal.Secret`** manages three secret groups (`fall-secrets`, `email-sending`, `elevenlabs-voice`) — API keys never appear in code or environment files.
+- **GitHub Actions auto-deploy**: every push to `main` that touches `backend/**` triggers `modal deploy`, with a post-deploy health check against the live endpoint.
+
+### The request flow
+
+1. iPhone sends up to 7 JPEGs as multipart form data to `POST /analyze`
+2. Modal decodes frames, measures quality (brightness, sharpness, contrast), blurs faces with OpenCV
+3. All decodable frames go to Claude in one multi-image request — chronological order preserved
+4. Claude returns a structured verdict (fall yes/no, confidence 0–1, reason in ≤12 words)
+5. If positive, ElevenLabs voice check-in begins through `GET /check-in/prompt`
+6. Spoken responses come back via `POST /event/{id}/check-in` with transcript and consent tracking
+7. Email alerts go through Gmail SMTP with atomic delivery claims
+
+Modal's serverless model means the backend scales to zero when nobody is falling and spins up in seconds when they are. For a safety application, that cold-start time is acceptable because the local detector and camera capture run on the phone — the server is only called after evidence is collected.
+
+---
+
+## Codex Side Track — AI-Assisted Development
+
+> **Junction 2026 Codex Side Track submission**
+
+All four team members used Codex throughout the 48-hour build. It was not a nice-to-have — it was how a team of four shipped a multi-platform system in two days.
+
+### How we used it
+
+- **Idea filtering**: we started with 10+ concepts and used Codex to rapidly evaluate feasibility, market size, existing solutions, and technical risk for each. It helped us converge on fall detection within the first hour.
+- **Market justification**: Codex helped us research fall statistics, existing products (Apple Watch, Abeye), their failure modes, and the regulatory landscape (EU Cyber Resilience Act timelines) — grounding our pitch in real data.
+- **Architecture design**: we described the system we wanted and iterated on the escalation pipeline design, API contracts, and state machine before writing code.
+- **Debugging and integration**: when the iOS app, the Modal backend, the glasses UI and the companion app needed to talk to each other, Codex helped debug cross-platform issues in real time — Swift ↔ Python ↔ React ↔ vanilla JS.
+- **Supply chain tooling**: the entire CRACI integration — SBOM fetching scripts, trust panel builder, backend pin checker, vulnerability auto-fixer — was built with Codex, turning CycloneDX specs and API docs into working code.
+- **Test generation**: the 18 unit tests and 100+ Puppeteer integration assertions were written with Codex, catching real regressions (like a teammate's contact-editor refactor breaking the trust panel tests).
+
+Codex was the force multiplier that let four people build what would normally take a team of eight a week.
+
+---
+
 ## Folder structure (this branch)
 
 ```
@@ -199,7 +278,7 @@ The companion app on the [`mobile-app`](../../tree/mobile-app) branch is a stati
 | Workflow | Branch | What it does |
 |----------|--------|-------------|
 | **Deploy server to Modal** | `main` | Auto-deploys `backend/fall_server.py` on push. Requires `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` secrets. |
-| **Supply chain evidence** | `craci` | Runs 6 CRACI jobs: backend, glasses-ui, mobile-app, strict policy, reviewed policy and trust-panel verification. |
+| **Supply chain evidence** | `craci` | Runs 7 jobs: 5 CRACI SBOM builds, AI vulnerability auto-fixer, and trust-panel verification. |
 
 ---
 
