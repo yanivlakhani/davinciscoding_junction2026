@@ -12,9 +12,29 @@ mkdirSync(shotsDir, { recursive: true });
 
 const url = (hash = "") => `file://${join(here, "index.html")}${hash}`;
 const VIEWPORT = { width: 390, height: 844, deviceScaleFactor: 2 };
-const RED = "rgb(238, 53, 46)";
-const GREEN = "rgb(0, 147, 60)";
 const settle = () => new Promise((r) => setTimeout(r, 400));
+
+// The app sits behind a sign-in screen and keeps its session and profile in
+// localStorage. Every check below except the sign-in gate itself needs a
+// signed-in wearer with a saved profile, so seed one before the page's own
+// scripts run. These keys and the profile shape mirror index.html.
+const DEMO_EMAIL = "demo@upright.test";
+const DEMO_PROFILE = {
+  userName: "Demo Wearer",
+  glassesModel: "Meta Ray-Ban Wayfarer",
+  contactName: "Elena Lakhani",
+  contactRelation: "Parent",
+  contactPhone: "+39 342 149 6978",
+};
+async function signedInPage(browser) {
+  const page = await browser.newPage();
+  await page.setViewport(VIEWPORT);
+  await page.evaluateOnNewDocument((email, profile) => {
+    localStorage.setItem("upright.session.v1", email);
+    localStorage.setItem("upright.profile.v1:" + email, JSON.stringify(profile));
+  }, DEMO_EMAIL, DEMO_PROFILE);
+  return page;
+}
 
 const shots = [
   ["01-home", ""],
@@ -26,6 +46,9 @@ const shots = [
   ["07-edit", "#/edit"],
   ["10-trust", "#/trust"],
   ["11-rawsbom", "#/rawsbom"],
+  ["16-profile", "#/profile"],
+  ["17-fall-detected", "#/fall-detected"],
+  ["18-fall-alert", "#/fall-alert"],
 ];
 
 let failures = 0;
@@ -44,16 +67,17 @@ const read = (page) =>
       return { off: el.classList.contains("is-off"), color: s.backgroundColor, onLeft: s.left === "3px" };
     };
     const text = (id) => document.getElementById(id).textContent.trim();
+    const orb = document.getElementById("fall-btn");
     return {
-      fallKnob: knob("fall-sw"),
+      // Fall protection is the large round button on the home screen.
+      orbOff: orb.classList.contains("is-off"),
+      orbLabel: orb.getAttribute("aria-label"),
+      orbAction: text("orb-action"),
       locKnob: knob("loc-sw"),
       title: text("st-title"),
-      hint: text("fall-hint"),
-      disc: document.getElementById("st-disc").className,
+      sub: text("st-sub"),
       locVal: text("loc-val"),
-      sensor: text("sp-sensor"),
-      camera: text("sp-camera"),
-      fallPressed: document.getElementById("fall-btn").getAttribute("aria-pressed"),
+      fallPressed: orb.getAttribute("aria-pressed"),
       locPressed: document.getElementById("loc-btn").getAttribute("aria-pressed"),
       sheetOpen: document.getElementById("scrim").classList.contains("on"),
       sheetTitle: text("sheet-title"),
@@ -64,10 +88,28 @@ const read = (page) =>
 
 const browser = await puppeteer.launch({ headless: "new" });
 try {
+  const isOn = (page, id) => page.$eval("#" + id, (e) => e.classList.contains("on"));
+
+  // ---- 0. The sign-in gate ------------------------------------------------
+  // A separate browser context has empty storage, so this is what a first
+  // visit looks like: nothing behind the gate should be reachable.
+  console.log("Sign-in gate");
+  const guest = await browser.createBrowserContext();
+  const gate = await guest.newPage();
+  await gate.setViewport(VIEWPORT);
+  await gate.goto(url("#/trust"), { waitUntil: "networkidle0" });
+  await settle();
+  check("without a session the app opens on sign-in", await isOn(gate, "screen-auth"), true);
+  check("a deep link cannot skip sign-in", await isOn(gate, "screen-trust"), false);
+  check("tab bar is hidden on sign-in",
+    await gate.$eval(".tabbar", (e) => getComputedStyle(e).display), "none");
+  await gate.screenshot({ path: join(shotsDir, "00-sign-in.png") });
+  console.log("wrote 00-sign-in.png");
+  await guest.close();
+
   // ---- 1. Screenshots of every state -------------------------------------
   for (const [name, hash] of shots) {
-    const page = await browser.newPage();
-    await page.setViewport(VIEWPORT);
+    const page = await signedInPage(browser);
     await page.goto(url(hash), { waitUntil: "networkidle0" });
     await settle();
     await page.screenshot({ path: join(shotsDir, `${name}.png`) });
@@ -76,19 +118,34 @@ try {
   }
 
   // ---- 2. Click-through checks -------------------------------------------
-  const page = await browser.newPage();
+  const page = await signedInPage(browser);
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-  await page.setViewport(VIEWPORT);
   await page.goto(url(), { waitUntil: "networkidle0" });
   await settle();
 
+  // Read the palette from the page instead of hard-coding it here, so a
+  // restyle changes the colours without breaking the behaviour checks.
+  const palette = await page.evaluate(() => {
+    const probe = document.createElement("span");
+    document.body.appendChild(probe);
+    const resolve = (name) => {
+      probe.style.color = `var(${name})`;
+      return getComputedStyle(probe).color;
+    };
+    const out = { green: resolve("--green"), aqua: resolve("--aqua") };
+    probe.remove();
+    return out;
+  });
+
   let s = await read(page);
   console.log("\nStarting state");
-  check("fall slider is on (green, right)", `${s.fallKnob.off}/${s.fallKnob.color}`, `false/${GREEN}`);
-  check("location slider is on (green, right)", `${s.locKnob.off}/${s.locKnob.color}`, `false/${GREEN}`);
-  check("title", s.title, "Fall detection on");
+  check("a signed-in wearer lands on home", await isOn(page, "screen-home"), true);
+  check("fall protection starts on", `${s.orbOff}/${s.fallPressed}`, "false/true");
+  check("location slider is on (accent colour, right)", `${s.locKnob.off}/${s.locKnob.color}`, `false/${palette.aqua}`);
+  check("title", s.title, "Protection is on");
+  const locOnColor = s.locKnob.color;
 
   console.log("\nFall detection: tap, then 'Keep it on'");
   await page.click("#fall-btn"); await settle();
@@ -98,21 +155,19 @@ try {
   await page.click("#sheet-keep"); await settle();
   s = await read(page);
   check("sheet closes", s.sheetOpen, false);
-  check("still on", `${s.title}/${s.fallKnob.off}`, "Fall detection on/false");
+  check("still on", `${s.title}/${s.orbOff}`, "Protection is on/false");
 
   console.log("\nFall detection: tap, then 'Turn off'  (the reported bug)");
   await page.click("#fall-btn"); await settle();
   await page.click("#sheet-confirm"); await settle();
   s = await read(page);
-  check("title says off", s.title, "Fall detection off");
-  check("slider knob is red", s.fallKnob.color, RED);
-  check("slider knob moved to the left", s.fallKnob.onLeft, true);
-  check("icon disc is red", s.disc, "status-disc off");
-  check("hint flips", s.hint, "Tap to turn on");
+  check("title says paused", s.title, "Protection is paused");
+  check("orb shows the off state", s.orbOff, true);
+  check("orb prompt flips", s.orbAction, "Tap to activate");
+  check("orb label flips", s.orbLabel, "Activate fall protection");
+  check("caption says paused", s.sub, "Fall protection paused \u00b7 tap to turn it back on");
   check("aria-pressed", s.fallPressed, "false");
-  check("sensor row", s.sensor, "Paused");
-  check("camera row", s.camera, "Off");
-  check("toast", `${s.toastOn} ${s.toast}`, "true Off | Fall detection off. Your contacts were told.");
+  check("toast", `${s.toastOn} ${s.toast}`, "true Off | Fall detection off in this demo. No alert was sent.");
   check("location untouched", s.locKnob.off, false);
   await page.screenshot({ path: join(shotsDir, "08-after-turning-fall-off.png") });
 
@@ -120,12 +175,11 @@ try {
   await page.click("#fall-btn"); await settle();
   s = await read(page);
   check("no confirmation", s.sheetOpen, false);
-  check("title says on", s.title, "Fall detection on");
-  check("slider knob is green", s.fallKnob.color, GREEN);
-  check("slider knob back on the right", s.fallKnob.onLeft, false);
-  check("icon disc is green", s.disc, "status-disc on");
-  check("sensor row", s.sensor, "Receiving");
-  check("toast", s.toast, "On | Fall detection on.");
+  check("title says on", s.title, "Protection is on");
+  check("orb shows the on state", s.orbOff, false);
+  check("orb prompt flips back", s.orbAction, "Tap to pause");
+  check("orb label flips back", s.orbLabel, "Deactivate fall protection");
+  check("toast", s.toast, "On | Fall detection on in this demo.");
 
   console.log("\nLocation sharing: tap, then 'Keep it on'");
   await page.click("#loc-btn"); await settle();
@@ -140,30 +194,63 @@ try {
   await page.click("#loc-btn"); await settle();
   await page.click("#sheet-confirm"); await settle();
   s = await read(page);
-  check("slider knob is red", s.locKnob.color, RED);
+  check("slider knob changes colour when off", s.locKnob.color !== locOnColor, true);
   check("slider knob moved to the left", s.locKnob.onLeft, true);
-  check("row text", s.locVal, "Off \u00b7 not sent with alerts");
+  check("row text", s.locVal, "Off \u00b7 excluded from demo");
   check("aria-pressed", s.locPressed, "false");
-  check("toast", s.toast, "Off | Location sharing off. Your contacts were told.");
-  check("fall detection untouched", `${s.title}/${s.fallKnob.off}`, "Fall detection on/false");
+  check("toast", s.toast, "Off | Location sharing off in this demo. No alert was sent.");
+  check("fall detection untouched", `${s.title}/${s.orbOff}`, "Protection is on/false");
   await page.screenshot({ path: join(shotsDir, "09-after-turning-location-off.png") });
 
   console.log("\nLocation sharing: tap again turns it back on without asking");
   await page.click("#loc-btn"); await settle();
   s = await read(page);
   check("no confirmation", s.sheetOpen, false);
-  check("slider knob is green", s.locKnob.color, GREEN);
-  check("row text", s.locVal, "On \u00b7 sent with a fall alert");
+  check("slider knob is back to the accent colour", s.locKnob.color, palette.aqua);
+  check("slider knob back on the right", s.locKnob.onLeft, false);
+  check("row text", s.locVal, "On \u00b7 shown in demo only");
 
   console.log("\nNavigation");
+  const homeContact = await page.$eval("#home-contact-list .contact-name", (e) => e.textContent.trim());
+  check("home shows the saved emergency contact", homeContact, DEMO_PROFILE.contactName);
   await page.click('.tab[data-tab="contacts"]'); await settle();
-  check("contacts tab opens contacts", await page.$eval("#screen-contacts", (e) => e.classList.contains("on")), true);
+  check("contacts tab opens contacts", await isOn(page, "screen-contacts"), true);
+  check("contacts lists the saved contact",
+    await page.$eval("#contacts-list .contact-info", (e) => e.textContent.trim()), DEMO_PROFILE.contactPhone);
   await page.click("#screen-contacts .contact"); await settle();
-  check("contact row opens edit form", await page.$eval("#screen-edit", (e) => e.classList.contains("on")), true);
-  await page.click("#screen-edit .back"); await settle();
-  check("back returns to contacts", await page.$eval("#screen-contacts", (e) => e.classList.contains("on")), true);
+  check("contact row opens the profile", await isOn(page, "screen-profile"), true);
+  check("profile form is filled from the saved profile",
+    await page.$eval('#profile-form [name="contactName"]', (e) => e.value), DEMO_PROFILE.contactName);
+  await page.click("#screen-profile .back"); await settle();
+  check("back returns home", await isOn(page, "screen-home"), true);
+  await page.click('.tab[data-tab="trust"]'); await settle();
+  check("trust tab opens the trust panel", await isOn(page, "screen-trust"), true);
   await page.click('.tab[data-tab="home"]'); await settle();
-  check("home tab returns home", await page.$eval("#screen-home", (e) => e.classList.contains("on")), true);
+  check("home tab returns home", await isOn(page, "screen-home"), true);
+
+  // The fall preview sits below the fold of a scrolling screen, so its
+  // buttons are clicked through the DOM rather than by coordinates.
+  console.log("\nFall preview flow");
+  const tap = (sel) => page.evaluate((q) => document.querySelector(q).click(), sel);
+  await tap(".fall-preview"); await settle();
+  check("preview opens the countdown", await isOn(page, "screen-fall-detected"), true);
+  check("tab bar is hidden during an alert",
+    await page.$eval(".tabbar", (e) => getComputedStyle(e).display), "none");
+  const countdown = Number(await page.$eval("#fall-countdown", (e) => e.textContent.trim()));
+  check("countdown is running from 20", countdown > 0 && countdown <= 20, true);
+  await tap("#screen-fall-detected .btn.ink"); await settle();
+  check("'I am fine' cancels the alert", await isOn(page, "screen-fall-safe"), true);
+  await tap("#screen-fall-safe .btn.ink"); await settle();
+  check("cancelled flow returns home", await isOn(page, "screen-home"), true);
+  await tap(".fall-preview"); await settle();
+  await tap("#screen-fall-detected .fall-help-btn"); await settle();
+  check("'ask for help' shows the alert screen", await isOn(page, "screen-fall-alert"), true);
+  check("alert names the saved emergency contact",
+    await page.$eval("#fall-alert-contact", (e) => e.textContent.trim()), DEMO_PROFILE.contactName);
+  await tap("#screen-fall-alert .btn.ink"); await settle();
+  check("alert flow returns home", await isOn(page, "screen-home"), true);
+  check("tab bar is back after the alert",
+    await page.$eval(".tabbar", (e) => getComputedStyle(e).display) !== "none", true);
 
   console.log("\nTrust panel");
   await page.evaluate(() => go("trust")); await settle();
@@ -221,7 +308,7 @@ try {
   check("component rows show real package names", firstGroup.names.includes("anthropic"), true);
   check("every component row has a tick", firstGroup.ticks.length, firstGroup.rows);
   check("every tick reads Verified", firstGroup.ticks.every((t) => t === "Verified"), true);
-  check("tick is the safety green", firstGroup.tickColor, GREEN);
+  check("tick label uses the app's green", firstGroup.tickColor, palette.green);
 
   // Across the whole panel: one tick per runtime component, none missing.
   const allTicks = await page.evaluate(() => ({
@@ -324,7 +411,7 @@ try {
   check("back returns to trust", await page.$eval("#screen-trust", (e) => e.classList.contains("on")), true);
 
   console.log("\nLayout");
-  for (const id of ["screen-home", "screen-contacts", "screen-edit", "screen-trust", "screen-rawsbom"]) {
+  for (const id of ["screen-home", "screen-contacts", "screen-edit", "screen-profile", "screen-trust", "screen-rawsbom"]) {
     await page.evaluate((name) => go(name), id.replace("screen-", ""));
     const overflow = await page.$eval("#" + id, (e) => e.scrollWidth - e.clientWidth);
     check(`${id} has no sideways overflow`, overflow, 0);
